@@ -32,7 +32,11 @@ const formatDate = (date: Date): string => {
 
 // Helper function to convert date to YYYY-MM-DD for input field
 const dateToInputValue = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const SalesPage = () => {
@@ -82,19 +86,19 @@ const SalesPage = () => {
       <div className="bg-card p-6 rounded-lg shadow-sm border">
         <h2 className="text-xl font-semibold mb-4">New Sale Entry</h2>
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-6 gap-4 items-end">
-            <div className="space-y-2">
+          <div className="grid grid-cols-12 gap-4 items-end">
+            <div className="col-span-2 space-y-2">
               <Label htmlFor="date">Date</Label>
               <Input
                 id="date"
                 name="date"
                 type="date"
-                defaultValue={dateToInputValue(new Date())}
+                value={dateToInputValue(new Date(newSale.date || new Date()))}
                 onChange={handleInputChange}
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="col-span-3 space-y-2">
               <Label htmlFor="product">Product</Label>
               <Input
                 id="product"
@@ -104,7 +108,7 @@ const SalesPage = () => {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label htmlFor="orderNumber">Order Number</Label>
               <Input
                 id="orderNumber"
@@ -114,7 +118,7 @@ const SalesPage = () => {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label htmlFor="quantity">Quantity</Label>
               <Input
                 id="quantity"
@@ -125,7 +129,7 @@ const SalesPage = () => {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label htmlFor="price">Price</Label>
               <Input
                 id="price"
@@ -136,8 +140,8 @@ const SalesPage = () => {
                 required
               />
             </div>
-            <div>
-              <Button type="submit" className="w-full">Save Sale</Button>
+            <div className="col-span-1">
+              <Button type="submit" className="w-full">Save</Button>
             </div>
           </div>
         </form>
@@ -147,12 +151,12 @@ const SalesPage = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Order Number</TableHead>
-              <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="w-[120px]">Date</TableHead>
+              <TableHead className="w-[250px]">Product</TableHead>
+              <TableHead className="w-[150px]">Order Number</TableHead>
+              <TableHead className="text-right w-[100px]">Quantity</TableHead>
+              <TableHead className="text-right w-[120px]">Price</TableHead>
+              <TableHead className="text-right w-[120px]">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

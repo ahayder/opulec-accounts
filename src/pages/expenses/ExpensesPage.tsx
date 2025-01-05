@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory } from '@/utils/database';
 
-interface ExpenseEntry {
-  id: string;
+interface ExpenseFormData {
   date: string;
   category: string;
   description: string;
@@ -20,157 +26,220 @@ interface ExpenseEntry {
   notes: string;
 }
 
-const formatDate = (date: Date): string => {
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
-};
-
-const dateToInputValue = (date: Date): string => {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 const ExpensesPage = () => {
-  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
-  const [newExpense, setNewExpense] = useState<Partial<ExpenseEntry>>({
-    date: formatDate(new Date())
+  const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState<ExpenseFormData>({
+    date: new Date().toISOString().split('T')[0],
+    category: '',
+    description: '',
+    amount: 0,
+    notes: ''
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setNewExpense(prev => {
-      const updated = { ...prev, [name]: value };
-      if (name === 'date') {
-        updated.date = formatDate(new Date(value));
-      }
-      return updated;
-    });
+  useEffect(() => {
+    loadExpenses();
+    loadCategories();
+  }, []);
+
+  const loadExpenses = async () => {
+    const data = await getExpenses();
+    setExpenses(data);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadCategories = async () => {
+    const data = await getExpenseCategories();
+    setCategories(data);
+  };
+
+  const handleInputChange = (name: keyof ExpenseFormData, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await addExpenseCategory({ name: newCategory.trim() });
+      await loadCategories();
+      setNewCategory('');
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error adding category:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newExpense.category && newExpense.description && newExpense.amount) {
-      const expenseEntry: ExpenseEntry = {
-        id: Date.now().toString(),
-        date: newExpense.date || formatDate(new Date()),
-        category: newExpense.category,
-        description: newExpense.description,
-        amount: Number(newExpense.amount),
-        notes: newExpense.notes || ''
-      };
-      setExpenses(prev => [...prev, expenseEntry]);
-      setNewExpense({ date: formatDate(new Date()) });
+    setIsSubmitting(true);
+    try {
+      await addExpense(formData);
+      await loadExpenses();
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        category: '',
+        description: '',
+        amount: 0,
+        notes: ''
+      });
+    } catch (error) {
+      console.error('Error adding expense:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Expenses</h1>
-        <p className="text-muted-foreground mt-2">Record and track your business expenses</p>
-      </div>
-
-      <div className="bg-card p-6 rounded-lg shadow-sm border">
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Expenses</h1>
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">New Expense Entry</h2>
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-12 gap-4 items-end">
-            <div className="col-span-2 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
+            <div className="md:col-span-2">
               <Label htmlFor="date">Date</Label>
               <Input
                 id="date"
-                name="date"
                 type="date"
-                value={dateToInputValue(new Date(newExpense.date || new Date()))}
-                onChange={handleInputChange}
-                required
+                value={formData.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+                className="w-full"
+                disabled={isSubmitting}
               />
             </div>
-            <div className="col-span-2 space-y-2">
+            <div className="md:col-span-3">
               <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                name="category"
-                value={newExpense.category || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="e.g., Utilities, Rent"
-              />
+              <div className="flex gap-2">
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => handleInputChange('category', value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon"
+                      className="shrink-0"
+                      disabled={isSubmitting}
+                    >
+                      +
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Category</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex gap-2 mt-4">
+                      <Input
+                        placeholder="Category name"
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                      <Button 
+                        onClick={handleAddCategory}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? 'Adding...' : 'Add'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
-            <div className="col-span-3 space-y-2">
+            <div className="md:col-span-3">
               <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
-                name="description"
-                value={newExpense.description || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="Brief description of expense"
+                type="text"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter description"
+                className="w-full"
+                disabled={isSubmitting}
               />
             </div>
-            <div className="col-span-2 space-y-2">
+            <div className="md:col-span-2">
               <Label htmlFor="amount">Amount</Label>
               <Input
                 id="amount"
-                name="amount"
                 type="number"
-                value={newExpense.amount || ''}
-                onChange={handleInputChange}
-                required
+                value={formData.amount}
+                onChange={(e) => handleInputChange('amount', parseFloat(e.target.value))}
+                placeholder="৳0.00"
+                className="w-full"
+                disabled={isSubmitting}
               />
             </div>
-            <div className="col-span-3 space-y-2">
+            <div className="md:col-span-1">
               <Label htmlFor="notes">Notes</Label>
               <Input
                 id="notes"
-                name="notes"
-                value={newExpense.notes || ''}
-                onChange={handleInputChange}
-                placeholder="Add any additional notes..."
+                type="text"
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder="Notes"
+                className="w-full"
+                disabled={isSubmitting}
               />
             </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button type="submit">Save Entry</Button>
+            <div className="md:col-span-1 flex items-end">
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Adding...' : 'Add'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[120px]">Date</TableHead>
-              <TableHead className="w-[150px]">Category</TableHead>
-              <TableHead className="w-[250px]">Description</TableHead>
-              <TableHead className="text-right w-[120px]">Amount</TableHead>
-              <TableHead className="w-[250px]">Notes</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {expenses.map((expense) => (
-              <TableRow key={expense.id}>
-                <TableCell>{expense.date}</TableCell>
-                <TableCell>{expense.category}</TableCell>
-                <TableCell>{expense.description}</TableCell>
-                <TableCell className="text-right">৳{expense.amount.toFixed(2)}</TableCell>
-                <TableCell>{expense.notes}</TableCell>
-              </TableRow>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {expenses.map((expense, index) => (
+              <tr key={expense.id || index}>
+                <td className="px-6 py-4 whitespace-nowrap">{new Date(expense.date).toLocaleDateString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{expense.category}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{expense.description}</td>
+                <td className="px-6 py-4 whitespace-nowrap">৳{expense.amount.toFixed(2)}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{expense.notes}</td>
+              </tr>
             ))}
-            {expenses.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No expense entries yet
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -10,67 +10,94 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getPurchases, addPurchase, type PurchaseEntry } from '@/utils/database';
+import { toast } from 'sonner';
+import { Loader2 } from "lucide-react";
+import dayjs from 'dayjs';
 
-interface PurchaseEntry {
-  id: string;
-  date: string;
-  product: string;
-  notes: string;
-  quantity: number;
-  price: number;
-  total: number;
-}
-
-const formatDate = (date: Date): string => {
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+// Helper function to format date as DD-MMM-YYYY
+const formatDate = (date: Date | string): string => {
+  return dayjs(date).format('DD-MMM-YYYY');
 };
 
-const dateToInputValue = (date: Date): string => {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+// Helper function to convert date to YYYY-MM-DD for input field
+const dateToInputValue = (date: Date | string): string => {
+  return dayjs(date).format('YYYY-MM-DD');
 };
 
 const PurchasesPage = () => {
   const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newPurchase, setNewPurchase] = useState<Partial<PurchaseEntry>>({
     date: formatDate(new Date())
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  useEffect(() => {
+    loadPurchases();
+  }, []);
+
+  const loadPurchases = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getPurchases();
+      setPurchases(data);
+    } catch (error) {
+      console.error('Error loading purchases:', error);
+      toast.error('Failed to load purchases data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewPurchase(prev => {
       const updated = { ...prev, [name]: value };
-      if ((name === 'quantity' || name === 'price') && updated.quantity && updated.price) {
-        updated.total = Number(updated.quantity) * Number(updated.price);
+      
+      // Calculate total when quantity or price changes
+      if (name === 'quantity' || name === 'price') {
+        const quantity = name === 'quantity' ? Number(value) : Number(prev.quantity) || 0;
+        const price = name === 'price' ? Number(value) : Number(prev.price) || 0;
+        updated.total = quantity * price;
       }
+      
+      // Format date when date changes
       if (name === 'date') {
-        updated.date = formatDate(new Date(value));
+        updated.date = formatDate(value);
       }
+      
       return updated;
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPurchase.product && newPurchase.quantity && newPurchase.price) {
-      const purchaseEntry: PurchaseEntry = {
-        id: Date.now().toString(),
+    if (!newPurchase.product || !newPurchase.quantity || !newPurchase.price) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const purchaseEntry = {
         date: newPurchase.date || formatDate(new Date()),
         product: newPurchase.product,
-        notes: newPurchase.notes || '',
         quantity: Number(newPurchase.quantity),
         price: Number(newPurchase.price),
-        total: Number(newPurchase.quantity) * Number(newPurchase.price)
+        total: Number(newPurchase.quantity) * Number(newPurchase.price),
+        notes: newPurchase.notes || ''
       };
-      setPurchases(prev => [...prev, purchaseEntry]);
-      setNewPurchase({ date: formatDate(new Date()) });
+      
+      await addPurchase(purchaseEntry);
+      await loadPurchases();
+      setNewPurchase({ date: formatDate(new Date()) }); // Reset form
+      toast.success('Purchase entry added successfully');
+    } catch (error) {
+      console.error('Error adding purchase:', error);
+      toast.error('Failed to add purchase entry');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -91,9 +118,10 @@ const PurchasesPage = () => {
                 id="date"
                 name="date"
                 type="date"
-                value={dateToInputValue(new Date(newPurchase.date || new Date()))}
+                value={dateToInputValue(newPurchase.date || new Date())}
                 onChange={handleInputChange}
                 required
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-3 space-y-2">
@@ -104,6 +132,8 @@ const PurchasesPage = () => {
                 value={newPurchase.product || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="Product name"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -112,9 +142,13 @@ const PurchasesPage = () => {
                 id="quantity"
                 name="quantity"
                 type="number"
+                min="0"
+                step="1"
                 value={newPurchase.quantity || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="0"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -123,9 +157,13 @@ const PurchasesPage = () => {
                 id="price"
                 name="price"
                 type="number"
+                min="0"
+                step="0.01"
                 value={newPurchase.price || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="0.00"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-3 space-y-2">
@@ -135,12 +173,22 @@ const PurchasesPage = () => {
                 name="notes"
                 value={newPurchase.notes || ''}
                 onChange={handleInputChange}
-                placeholder="Add any additional notes..."
+                placeholder="Add notes..."
+                disabled={isSubmitting}
               />
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button type="submit">Save Entry</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Entry'
+              )}
+            </Button>
           </div>
         </form>
       </div>
@@ -158,22 +206,32 @@ const PurchasesPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {purchases.map((purchase) => (
-              <TableRow key={purchase.id}>
-                <TableCell>{purchase.date}</TableCell>
-                <TableCell>{purchase.product}</TableCell>
-                <TableCell className="text-right">{purchase.quantity}</TableCell>
-                <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
-                <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
-                <TableCell>{purchase.notes}</TableCell>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    Loading purchases data...
+                  </div>
+                </TableCell>
               </TableRow>
-            ))}
-            {purchases.length === 0 && (
+            ) : purchases.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No purchase entries yet
                 </TableCell>
               </TableRow>
+            ) : (
+              purchases.map((purchase) => (
+                <TableRow key={purchase.id}>
+                  <TableCell>{purchase.date}</TableCell>
+                  <TableCell>{purchase.product}</TableCell>
+                  <TableCell className="text-right">{purchase.quantity}</TableCell>
+                  <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
+                  <TableCell>{purchase.notes}</TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

@@ -13,19 +13,16 @@ import { Label } from "@/components/ui/label";
 import { getSales, addSale, type SaleEntry } from '@/utils/database';
 import { toast } from 'sonner';
 import { Loader2 } from "lucide-react";
+import dayjs from 'dayjs';
 
 // Helper function to format date as DD-MMM-YYYY
-const formatDate = (date: Date): string => {
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+const formatDate = (date: Date | string): string => {
+  return dayjs(date).format('DD-MMM-YYYY');
 };
 
 // Helper function to convert date to YYYY-MM-DD for input field
-const dateToInputValue = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+const dateToInputValue = (date: Date | string): string => {
+  return dayjs(date).format('YYYY-MM-DD');
 };
 
 const SalesPage = () => {
@@ -67,7 +64,7 @@ const SalesPage = () => {
       
       // Format date when date changes
       if (name === 'date') {
-        updated.date = formatDate(new Date(value));
+        updated.date = formatDate(value);
       }
       
       return updated;
@@ -122,7 +119,7 @@ const SalesPage = () => {
                 id="date"
                 name="date"
                 type="date"
-                value={dateToInputValue(new Date(newSale.date || new Date()))}
+                value={dateToInputValue(newSale.date || new Date())}
                 onChange={handleInputChange}
                 required
                 disabled={isSubmitting}

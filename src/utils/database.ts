@@ -1,5 +1,6 @@
-import { collection, addDoc, getDocs, Timestamp, DocumentData } from 'firebase/firestore';
-import { db } from '../main';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/main';
+import dayjs from 'dayjs';
 
 export interface SaleEntry {
   id?: string;
@@ -22,147 +23,86 @@ export interface PurchaseEntry {
   notes?: string;
 }
 
-export interface ExpenseEntry {
-  id?: string;
-  date: string;
-  category: string;
-  description: string;
-  amount: number;
-  notes?: string;
-}
-
-function convertFirestoreDate(data: DocumentData) {
-  try {
-    if (data.date && data.date instanceof Timestamp) {
-      return {
-        ...data,
-        date: data.date.toDate().toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        })
-      };
-    }
-    return data;
-  } catch (error) {
-    console.error('Error converting date:', error);
-    return data;
-  }
-}
+// Helper function to format date
+const formatDate = (date: Date): string => {
+  return dayjs(date).format('DD-MMM-YYYY');
+};
 
 // Sales functions
-export async function getSales() {
+export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
   try {
-    const salesRef = collection(db, 'sales');
-    const querySnapshot = await getDocs(salesRef);
-    
-    return querySnapshot.docs.map(doc => {
-      const data = convertFirestoreDate(doc.data());
-      return {
-        id: doc.id,
-        ...data
-      };
-    }) as SaleEntry[];
-  } catch (error) {
-    console.error('Error getting sales:', error);
-    return [];
-  }
-}
-
-export async function addSale(sale: Omit<SaleEntry, 'id'>) {
-  try {
-    const salesRef = collection(db, 'sales');
-    const saleData = {
+    const docRef = await addDoc(collection(db, 'sales'), {
       ...sale,
-      date: Timestamp.fromDate(new Date(sale.date)),
+      date: Timestamp.fromDate(dayjs(sale.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
-    };
-    
-    const docRef = await addDoc(salesRef, saleData);
-    return {
-      id: docRef.id,
-      ...sale
-    };
+    });
+    return docRef.id;
   } catch (error) {
     console.error('Error adding sale:', error);
     throw error;
   }
-}
+};
 
-// Purchases functions
-export async function getPurchases() {
+export const getSales = async (): Promise<SaleEntry[]> => {
   try {
-    const purchasesRef = collection(db, 'purchases');
-    const querySnapshot = await getDocs(purchasesRef);
-    
+    const q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
-      const data = convertFirestoreDate(doc.data());
+      const data = doc.data();
+      // Convert Timestamp to formatted date string if it's a Timestamp
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
-        ...data
-      };
-    }) as PurchaseEntry[];
+        date,
+        product: data.product,
+        order_number: data.order_number,
+        quantity: data.quantity,
+        price: data.price,
+        total: data.total,
+        notes: data.notes
+      } as SaleEntry;
+    });
   } catch (error) {
-    console.error('Error getting purchases:', error);
-    return [];
+    console.error('Error getting sales:', error);
+    throw error;
   }
-}
+};
 
-export async function addPurchase(purchase: Omit<PurchaseEntry, 'id'>) {
+// Purchases functions
+export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
   try {
-    const purchasesRef = collection(db, 'purchases');
-    const purchaseData = {
+    const docRef = await addDoc(collection(db, 'purchases'), {
       ...purchase,
-      date: Timestamp.fromDate(new Date(purchase.date)),
+      date: Timestamp.fromDate(dayjs(purchase.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
-    };
-    
-    const docRef = await addDoc(purchasesRef, purchaseData);
-    return {
-      id: docRef.id,
-      ...purchase
-    };
+    });
+    return docRef.id;
   } catch (error) {
     console.error('Error adding purchase:', error);
     throw error;
   }
-}
+};
 
-// Expenses functions
-export async function getExpenses() {
+export const getPurchases = async (): Promise<PurchaseEntry[]> => {
   try {
-    const expensesRef = collection(db, 'expenses');
-    const querySnapshot = await getDocs(expensesRef);
-    
+    const q = query(collection(db, 'purchases'), orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
-      const data = convertFirestoreDate(doc.data());
+      const data = doc.data();
+      // Convert Timestamp to formatted date string if it's a Timestamp
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
-        ...data
-      };
-    }) as ExpenseEntry[];
+        date,
+        product: data.product,
+        quantity: data.quantity,
+        price: data.price,
+        total: data.total,
+        notes: data.notes
+      } as PurchaseEntry;
+    });
   } catch (error) {
-    console.error('Error getting expenses:', error);
-    return [];
-  }
-}
-
-export async function addExpense(expense: Omit<ExpenseEntry, 'id'>) {
-  try {
-    const expensesRef = collection(db, 'expenses');
-    const expenseData = {
-      ...expense,
-      date: Timestamp.fromDate(new Date(expense.date)),
-      createdAt: Timestamp.now()
-    };
-    
-    const docRef = await addDoc(expensesRef, expenseData);
-    return {
-      id: docRef.id,
-      ...expense
-    };
-  } catch (error) {
-    console.error('Error adding expense:', error);
+    console.error('Error getting purchases:', error);
     throw error;
   }
-} 
+}; 

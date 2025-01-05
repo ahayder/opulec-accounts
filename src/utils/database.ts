@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -36,6 +36,15 @@ export interface ExpenseCategory {
   id?: string;
   name: string;
   createdAt?: Date;
+}
+
+export interface AssetEntry {
+  id: string;
+  name: string;
+  purchaseDate: string;
+  cost: number;
+  usefulLife: number;
+  lastUpdated?: Timestamp;
 }
 
 // Helper function to format date
@@ -185,6 +194,44 @@ export const getExpenseCategories = async (): Promise<ExpenseCategory[]> => {
     }));
   } catch (error) {
     console.error('Error getting expense categories:', error);
+    throw error;
+  }
+};
+
+export const addAsset = async (asset: Omit<AssetEntry, 'id' | 'lastUpdated'>): Promise<void> => {
+  try {
+    const docRef = await addDoc(collection(db, 'assets'), {
+      ...asset,
+      lastUpdated: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+    console.log('Asset added with ID:', docRef.id);
+  } catch (error) {
+    console.error('Error adding asset:', error);
+    throw error;
+  }
+};
+
+export const updateAssetDepreciation = async (assetId: string): Promise<void> => {
+  try {
+    await updateDoc(doc(db, 'assets', assetId), {
+      lastUpdated: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error updating asset depreciation:', error);
+    throw error;
+  }
+};
+
+export const getAssets = async (): Promise<AssetEntry[]> => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'assets'));
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as AssetEntry));
+  } catch (error) {
+    console.error('Error getting assets:', error);
     throw error;
   }
 }; 

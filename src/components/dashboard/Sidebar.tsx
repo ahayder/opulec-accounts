@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOutIcon } from 'lucide-react';
+import { LogOutIcon, Menu, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface SidebarItem {
   title: string;
@@ -15,12 +16,12 @@ interface SidebarProps {
   items: SidebarItem[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ items }) => {
+const SidebarContent = ({ items, className }: SidebarProps & { className?: string }) => {
   const location = useLocation();
   const { logout } = useAuth();
 
   return (
-    <aside className="min-h-screen w-64 bg-background border-r flex flex-col">
+    <div className={cn("flex flex-col h-full", className)}>
       <div className="p-6 border-b">
         <h2 className="text-2xl font-semibold tracking-tight">Opulec Accounts</h2>
       </div>
@@ -58,7 +59,32 @@ const Sidebar: React.FC<SidebarProps> = ({ items }) => {
           Logout
         </Button>
       </div>
-    </aside>
+    </div>
+  );
+};
+
+const Sidebar: React.FC<SidebarProps> = ({ items }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Mobile Menu Button */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" className="p-2 md:hidden fixed top-4 left-4 z-50">
+            <Menu className="h-6 w-6" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0 w-72">
+          <SidebarContent items={items} />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:block w-64 bg-background border-r">
+        <SidebarContent items={items} />
+      </aside>
+    </>
   );
 };
 

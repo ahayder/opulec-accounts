@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowUpIcon, ArrowDownIcon, CalendarIcon } from '@radix-ui/react-icons';
+import { ArrowUpIcon, ArrowDownIcon } from '@radix-ui/react-icons';
 import dayjs from 'dayjs';
 
 interface DashboardMetrics {
@@ -23,37 +23,34 @@ const DashboardPage = () => {
     totalCOGS: 0,
     grossProfit: 0,
     totalOperatingExpenses: 0,
-    netProfit: 0,
+    netProfit: 0
   });
 
-  const calculateMetrics = async (start: string, end: string) => {
+  const calculateMetrics = async () => {
     try {
-      const sales = await getSales();
-      const purchases = await getPurchases();
-      const expenses = await getExpenses();
+      const [sales, purchases, expenses] = await Promise.all([
+        getSales(),
+        getPurchases(),
+        getExpenses()
+      ]);
 
-      const startTimestamp = dayjs(start).startOf('day');
-      const endTimestamp = dayjs(end).endOf('day');
-
-      // Filter data based on date range
       const filteredSales = sales.filter(sale => {
-        const saleDate = dayjs(sale.date, 'DD-MMM-YYYY');
-        return saleDate.isAfter(startTimestamp) && saleDate.isBefore(endTimestamp);
+        const saleDate = dayjs(sale.date);
+        return saleDate.isAfter(dayjs(startDate)) && saleDate.isBefore(dayjs(endDate).add(1, 'day'));
       });
 
       const filteredPurchases = purchases.filter(purchase => {
-        const purchaseDate = dayjs(purchase.date, 'DD-MMM-YYYY');
-        return purchaseDate.isAfter(startTimestamp) && purchaseDate.isBefore(endTimestamp);
+        const purchaseDate = dayjs(purchase.date);
+        return purchaseDate.isAfter(dayjs(startDate)) && purchaseDate.isBefore(dayjs(endDate).add(1, 'day'));
       });
 
       const filteredExpenses = expenses.filter(expense => {
-        const expenseDate = dayjs(expense.date, 'DD-MMM-YYYY');
-        return expenseDate.isAfter(startTimestamp) && expenseDate.isBefore(endTimestamp);
+        const expenseDate = dayjs(expense.date);
+        return expenseDate.isAfter(dayjs(startDate)) && expenseDate.isBefore(dayjs(endDate).add(1, 'day'));
       });
 
-      // Calculate metrics
-      const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
-      const totalCOGS = filteredPurchases.reduce((sum, purchase) => sum + purchase.total, 0);
+      const totalSales = filteredSales.reduce((sum, sale) => sum + sale.amount, 0);
+      const totalCOGS = filteredPurchases.reduce((sum, purchase) => sum + purchase.amount, 0);
       const grossProfit = totalSales - totalCOGS;
       const totalOperatingExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
       const netProfit = grossProfit - totalOperatingExpenses;
@@ -63,7 +60,7 @@ const DashboardPage = () => {
         totalCOGS,
         grossProfit,
         totalOperatingExpenses,
-        netProfit,
+        netProfit
       });
     } catch (error) {
       console.error('Error calculating metrics:', error);
@@ -71,7 +68,7 @@ const DashboardPage = () => {
   };
 
   useEffect(() => {
-    calculateMetrics(startDate, endDate);
+    calculateMetrics();
   }, [startDate, endDate]);
 
   const handleDateRangeClick = (range: 'week' | 'month' | '3months') => {
@@ -95,62 +92,56 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="h-16 border-b flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="h-16 border-b flex items-center">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Track your business performance and financial metrics</p>
         </div>
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="w-5 h-5 text-gray-500" />
-          <span className="text-sm text-gray-500">
-            {dayjs(startDate).format('MMM D, YYYY')} - {dayjs(endDate).format('MMM D, YYYY')}
-          </span>
-        </div>
       </div>
 
-      <Card className="mt-6">
+      <Card>
         <CardContent className="p-6">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
             <div className="flex items-center gap-2">
-              <Label htmlFor="startDate" className="text-sm font-medium">From:</Label>
+              <Label htmlFor="startDate" className="text-sm font-medium whitespace-nowrap">From:</Label>
               <Input
                 id="startDate"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-40"
+                className="w-full md:w-40"
               />
             </div>
             <div className="flex items-center gap-2">
-              <Label htmlFor="endDate" className="text-sm font-medium">To:</Label>
+              <Label htmlFor="endDate" className="text-sm font-medium whitespace-nowrap">To:</Label>
               <Input
                 id="endDate"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-40"
+                className="w-full md:w-40"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant="outline" 
                 onClick={() => handleDateRangeClick('week')}
-                className="text-sm"
+                className="flex-1 md:flex-none text-sm"
               >
                 Last 7 Days
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => handleDateRangeClick('month')}
-                className="text-sm"
+                className="flex-1 md:flex-none text-sm"
               >
                 Last Month
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => handleDateRangeClick('3months')}
-                className="text-sm"
+                className="flex-1 md:flex-none text-sm"
               >
                 Last 3 Months
               </Button>
@@ -159,7 +150,7 @@ const DashboardPage = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -206,7 +197,7 @@ const DashboardPage = () => {
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2 lg:col-span-2">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-500">Net Profit</h3>
@@ -216,7 +207,7 @@ const DashboardPage = () => {
                 <ArrowDownIcon className="w-4 h-4 text-red-500" />
               )}
             </div>
-            <p className={`text-3xl font-bold ${metrics.netProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`text-2xl font-bold ${metrics.netProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
               ৳{metrics.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </p>
           </CardContent>

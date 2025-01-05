@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory } from '@/utils/database';
+import { Loader2, Plus } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
 
 interface ExpenseFormData {
   date: string;
@@ -29,9 +19,9 @@ interface ExpenseFormData {
 const ExpensesPage = () => {
   const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
   
   const [formData, setFormData] = useState<ExpenseFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -63,14 +53,14 @@ const ExpensesPage = () => {
     }));
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategory.trim()) return;
+  const handleAddCategory = async (categoryName: string) => {
+    if (!categoryName.trim()) return;
     setIsSubmitting(true);
     try {
-      await addExpenseCategory({ name: newCategory.trim() });
+      await addExpenseCategory({ name: categoryName.trim() });
       await loadCategories();
       setNewCategory('');
-      setIsDialogOpen(false);
+      handleInputChange('category', categoryName.trim());
     } catch (error) {
       console.error('Error adding category:', error);
     } finally {
@@ -95,6 +85,14 @@ const ExpensesPage = () => {
       console.error('Error adding expense:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && newCategory) {
+      e.preventDefault();
+      handleAddCategory(newCategory);
+      setOpen(false);
     }
   };
 
@@ -124,55 +122,64 @@ const ExpensesPage = () => {
             </div>
             <div className="md:col-span-3">
               <Label htmlFor="category">Category</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => handleInputChange('category', value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0"
-                      disabled={isSubmitting}
-                    >
-                      +
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Category</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex gap-2 mt-4">
-                      <Input
-                        placeholder="Category name"
-                        value={newCategory}
-                        onChange={(e) => setNewCategory(e.target.value)}
-                        disabled={isSubmitting}
-                      />
-                      <Button 
-                        onClick={handleAddCategory}
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? 'Adding...' : 'Add'}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                    disabled={isSubmitting}
+                  >
+                    {formData.category
+                      ? categories.find((category) => category.name === formData.category)?.name
+                      : "Select category..."}
+                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder="Search or add category..." 
+                      value={newCategory}
+                      onValueChange={setNewCategory}
+                      onKeyDown={handleKeyDown}
+                    />
+                    <CommandList>
+                      <CommandEmpty className="py-6 text-center text-sm">
+                        {newCategory && (
+                          <div className="flex items-center justify-center gap-2 text-sm">
+                            <Plus className="h-4 w-4" />
+                            <span>Press Enter to add "{newCategory}"</span>
+                          </div>
+                        )}
+                        {!newCategory && "No categories found"}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {categories
+                          .filter(category => 
+                            category.name.toLowerCase().includes(newCategory.toLowerCase())
+                          )
+                          .map((category) => (
+                            <CommandItem
+                              key={category.id}
+                              onSelect={() => {
+                                handleInputChange('category', category.name);
+                                setOpen(false);
+                              }}
+                              className="flex items-center justify-between"
+                            >
+                              <span>{category.name}</span>
+                              {formData.category === category.name && (
+                                <CheckIcon className="ml-2 h-4 w-4" />
+                              )}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="md:col-span-3">
               <Label htmlFor="description">Description</Label>
@@ -198,7 +205,7 @@ const ExpensesPage = () => {
                 disabled={isSubmitting}
               />
             </div>
-            <div className="md:col-span-1">
+            <div className="md:col-span-2">
               <Label htmlFor="notes">Notes</Label>
               <Input
                 id="notes"
@@ -210,15 +217,21 @@ const ExpensesPage = () => {
                 disabled={isSubmitting}
               />
             </div>
-            <div className="md:col-span-1 flex items-end">
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Adding...' : 'Add'}
-              </Button>
-            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Entry'
+              )}
+            </Button>
           </div>
         </form>
       </div>

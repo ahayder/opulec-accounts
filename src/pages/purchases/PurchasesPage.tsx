@@ -102,10 +102,12 @@ const PurchasesPage = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Purchases</h1>
-        <p className="text-muted-foreground mt-2">Record and manage your purchase transactions</p>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="h-16 border-b flex items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Purchases</h1>
+          <p className="text-muted-foreground">Record and manage your purchase transactions</p>
+        </div>
       </div>
 
       <div className="bg-card p-6 rounded-lg shadow-sm border">

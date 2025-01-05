@@ -108,8 +108,14 @@ const AssetsPage = () => {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Assets</h1>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="h-16 border-b flex items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Assets</h1>
+          <p className="text-muted-foreground">Manage your assets and track depreciation</p>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">New Asset Entry</h2>
         <form onSubmit={handleSubmit}>

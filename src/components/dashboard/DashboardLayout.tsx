@@ -9,7 +9,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const sidebarItems = [
     { title: 'Dashboard', path: '/', icon: '📊' },
     { title: 'Sales', path: '/sales', icon: '💵' },
-    { title: 'Inventory', path: '/inventory', icon: '📦' },
+    { title: 'Purchases', path: '/purchases', icon: '🛍️' },
     { title: 'Expenses', path: '/expenses', icon: '💸' },
     { title: 'Assets', path: '/assets', icon: '🏢' },
     { title: 'Investments', path: '/investments', icon: '📈' },

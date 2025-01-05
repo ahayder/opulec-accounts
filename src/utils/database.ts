@@ -47,6 +47,14 @@ export interface AssetEntry {
   lastUpdated?: Timestamp;
 }
 
+export interface InvestmentEntry {
+  id?: string;
+  date: string;
+  investor: string;
+  amount: number;
+  note: string;
+}
+
 // Helper function to format date
 const formatDate = (date: Date): string => {
   return dayjs(date).format('DD-MMM-YYYY');
@@ -232,6 +240,43 @@ export const getAssets = async (): Promise<AssetEntry[]> => {
     } as AssetEntry));
   } catch (error) {
     console.error('Error getting assets:', error);
+    throw error;
+  }
+};
+
+// Investment functions
+export const addInvestment = async (investment: Omit<InvestmentEntry, 'id'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'investments'), {
+      ...investment,
+      date: Timestamp.fromDate(dayjs(investment.date).toDate()),
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding investment:', error);
+    throw error;
+  }
+};
+
+export const getInvestments = async (): Promise<InvestmentEntry[]> => {
+  try {
+    const q = query(collection(db, 'investments'), orderBy('date', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      // Convert Timestamp to formatted date string if it's a Timestamp
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
+      return {
+        id: doc.id,
+        date,
+        investor: data.investor,
+        amount: data.amount,
+        note: data.note
+      } as InvestmentEntry;
+    });
+  } catch (error) {
+    console.error('Error getting investments:', error);
     throw error;
   }
 }; 

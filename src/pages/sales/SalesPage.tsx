@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -10,17 +10,9 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-interface SaleEntry {
-  id: string;
-  date: string;
-  product: string;
-  orderNumber: string;
-  quantity: number;
-  price: number;
-  total: number;
-  notes: string;
-}
+import { getSales, addSale, type SaleEntry } from '@/utils/database';
+import { toast } from 'sonner';
+import { Loader2 } from "lucide-react";
 
 // Helper function to format date as DD-MMM-YYYY
 const formatDate = (date: Date): string => {
@@ -33,48 +25,83 @@ const formatDate = (date: Date): string => {
 
 // Helper function to convert date to YYYY-MM-DD for input field
 const dateToInputValue = (date: Date): string => {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return date.toISOString().split('T')[0];
 };
 
 const SalesPage = () => {
   const [sales, setSales] = useState<SaleEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newSale, setNewSale] = useState<Partial<SaleEntry>>({
     date: formatDate(new Date())
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  useEffect(() => {
+    loadSales();
+  }, []);
+
+  const loadSales = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getSales();
+      setSales(data);
+    } catch (error) {
+      console.error('Error loading sales:', error);
+      toast.error('Failed to load sales data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewSale(prev => {
       const updated = { ...prev, [name]: value };
-      if ((name === 'quantity' || name === 'price') && updated.quantity && updated.price) {
-        updated.total = Number(updated.quantity) * Number(updated.price);
+      
+      // Calculate total when quantity or price changes
+      if (name === 'quantity' || name === 'price') {
+        const quantity = name === 'quantity' ? Number(value) : Number(prev.quantity) || 0;
+        const price = name === 'price' ? Number(value) : Number(prev.price) || 0;
+        updated.total = quantity * price;
       }
+      
+      // Format date when date changes
       if (name === 'date') {
         updated.date = formatDate(new Date(value));
       }
+      
       return updated;
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newSale.product && newSale.orderNumber && newSale.quantity && newSale.price) {
-      const saleEntry: SaleEntry = {
-        id: Date.now().toString(),
+    if (!newSale.product || !newSale.order_number || !newSale.quantity || !newSale.price) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const saleEntry = {
         date: newSale.date || formatDate(new Date()),
         product: newSale.product,
-        orderNumber: newSale.orderNumber,
+        order_number: newSale.order_number,
         quantity: Number(newSale.quantity),
         price: Number(newSale.price),
         total: Number(newSale.quantity) * Number(newSale.price),
         notes: newSale.notes || ''
       };
-      setSales(prev => [...prev, saleEntry]);
-      setNewSale({ date: formatDate(new Date()) });
+      
+      await addSale(saleEntry);
+      await loadSales();
+      setNewSale({ date: formatDate(new Date()) }); // Reset form
+      toast.success('Sale entry added successfully');
+    } catch (error) {
+      console.error('Error adding sale:', error);
+      toast.error('Failed to add sale entry');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -98,6 +125,7 @@ const SalesPage = () => {
                 value={dateToInputValue(new Date(newSale.date || new Date()))}
                 onChange={handleInputChange}
                 required
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -108,16 +136,20 @@ const SalesPage = () => {
                 value={newSale.product || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="Product name"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
-              <Label htmlFor="orderNumber">Order Number</Label>
+              <Label htmlFor="order_number">Order Number</Label>
               <Input
-                id="orderNumber"
-                name="orderNumber"
-                value={newSale.orderNumber || ''}
+                id="order_number"
+                name="order_number"
+                value={newSale.order_number || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="Order #"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -126,9 +158,13 @@ const SalesPage = () => {
                 id="quantity"
                 name="quantity"
                 type="number"
+                min="0"
+                step="1"
                 value={newSale.quantity || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="0"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -137,9 +173,13 @@ const SalesPage = () => {
                 id="price"
                 name="price"
                 type="number"
+                min="0"
+                step="0.01"
                 value={newSale.price || ''}
                 onChange={handleInputChange}
                 required
+                placeholder="0.00"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -149,12 +189,22 @@ const SalesPage = () => {
                 name="notes"
                 value={newSale.notes || ''}
                 onChange={handleInputChange}
-                placeholder="Add any additional notes..."
+                placeholder="Add notes..."
+                disabled={isSubmitting}
               />
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button type="submit">Save Entry</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Entry'
+              )}
+            </Button>
           </div>
         </form>
       </div>
@@ -173,23 +223,33 @@ const SalesPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sales.map((sale) => (
-              <TableRow key={sale.id}>
-                <TableCell>{sale.date}</TableCell>
-                <TableCell>{sale.product}</TableCell>
-                <TableCell>{sale.orderNumber}</TableCell>
-                <TableCell className="text-right">{sale.quantity}</TableCell>
-                <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
-                <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
-                <TableCell>{sale.notes}</TableCell>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    Loading sales data...
+                  </div>
+                </TableCell>
               </TableRow>
-            ))}
-            {sales.length === 0 && (
+            ) : sales.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No sales entries yet
                 </TableCell>
               </TableRow>
+            ) : (
+              sales.map((sale) => (
+                <TableRow key={sale.id}>
+                  <TableCell>{sale.date}</TableCell>
+                  <TableCell>{sale.product}</TableCell>
+                  <TableCell>{sale.order_number}</TableCell>
+                  <TableCell className="text-right">{sale.quantity}</TableCell>
+                  <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
+                  <TableCell>{sale.notes}</TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

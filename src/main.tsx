@@ -1,9 +1,13 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+import { BrowserRouter } from 'react-router-dom'
+import App from './App'
 import './index.css'
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app'
+import { getAuth } from 'firebase/auth'
+import { getFirestore } from 'firebase/firestore'
+import { AuthProvider } from './contexts/AuthContext'
+import { Toaster } from 'sonner'
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -22,8 +26,7 @@ if (!import.meta.env.VITE_FIREBASE_API_KEY) {
 
 // Initialize Firebase app
 const app = initializeApp(firebaseConfig);
-
-// Initialize Firestore
+export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // Create root only if it doesn't exist
@@ -31,7 +34,12 @@ const rootElement = document.getElementById('root');
 if (!rootElement?.innerHTML) {
   ReactDOM.createRoot(rootElement!).render(
     <React.StrictMode>
-      <App />
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+          <Toaster position="top-right" />
+        </AuthProvider>
+      </BrowserRouter>
     </React.StrictMode>,
   );
 }

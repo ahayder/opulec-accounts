@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addAsset, getAssets, updateAssetDepreciation, type AssetEntry } from '@/utils/database';
+import { useBusiness } from '@/contexts/BusinessContext';
+import { toast } from 'sonner';
 
 interface AssetFormData {
   name: string;
@@ -18,6 +20,7 @@ interface CalculatedAsset extends AssetEntry {
 }
 
 const AssetsPage = () => {
+  const { currentBusiness } = useBusiness();
   const [assets, setAssets] = useState<CalculatedAsset[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -29,32 +32,37 @@ const AssetsPage = () => {
   });
 
   useEffect(() => {
-    loadAssetsAndUpdateDepreciation();
-  }, []);
+    if (currentBusiness) {
+      loadAssetsAndUpdateDepreciation();
+    }
+  }, [currentBusiness]);
 
   const loadAssetsAndUpdateDepreciation = async () => {
+    if (!currentBusiness) return;
+    
     try {
-      const data = await getAssets();
+      const data = await getAssets(currentBusiness.id);
       
       // Check and update depreciation for each asset
       const now = new Date();
       for (const asset of data) {
         const lastUpdated = asset.lastUpdated?.toDate() || new Date(asset.purchaseDate);
         const monthsSinceUpdate = (now.getFullYear() - lastUpdated.getFullYear()) * 12 + 
-                                (now.getMonth() - lastUpdated.getMonth());
+                               (now.getMonth() - lastUpdated.getMonth());
         
         // If it's been a month or more since the last update
         if (monthsSinceUpdate >= 1) {
-          await updateAssetDepreciation(asset.id);
+          await updateAssetDepreciation(currentBusiness.id, asset.id);
         }
       }
 
       // Reload assets with updated values
-      const updatedData = await getAssets();
+      const updatedData = await getAssets(currentBusiness.id);
       const calculatedAssets = updatedData.map(calculateDepreciation);
       setAssets(calculatedAssets);
     } catch (error) {
       console.error('Error loading assets:', error);
+      toast.error('Failed to load assets');
     }
   };
 
@@ -90,9 +98,14 @@ const AssetsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentBusiness) {
+      toast.error('Please select a business first');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      await addAsset(formData);
+      await addAsset(currentBusiness.id, formData);
       await loadAssetsAndUpdateDepreciation();
       setFormData({
         name: '',
@@ -100,8 +113,10 @@ const AssetsPage = () => {
         cost: 0,
         usefulLife: 1
       });
+      toast.success('Asset added successfully');
     } catch (error) {
       console.error('Error adding asset:', error);
+      toast.error('Failed to add asset');
     } finally {
       setIsSubmitting(false);
     }

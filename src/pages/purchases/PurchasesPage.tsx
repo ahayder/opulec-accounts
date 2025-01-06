@@ -14,6 +14,7 @@ import { getPurchases, addPurchase, type PurchaseEntry } from '@/utils/database'
 import { toast } from 'sonner';
 import { Loader2 } from "lucide-react";
 import dayjs from 'dayjs';
+import { useBusiness } from '@/contexts/BusinessContext';
 
 // Helper function to format date as DD-MMM-YYYY
 const formatDate = (date: Date | string): string => {
@@ -26,6 +27,7 @@ const dateToInputValue = (date: Date | string): string => {
 };
 
 const PurchasesPage = () => {
+  const { currentBusiness } = useBusiness();
   const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,13 +36,17 @@ const PurchasesPage = () => {
   });
 
   useEffect(() => {
-    loadPurchases();
-  }, []);
+    if (currentBusiness) {
+      loadPurchases();
+    }
+  }, [currentBusiness]);
 
   const loadPurchases = async () => {
+    if (!currentBusiness) return;
+    
     try {
       setIsLoading(true);
-      const data = await getPurchases();
+      const data = await getPurchases(currentBusiness.id);
       setPurchases(data);
     } catch (error) {
       console.error('Error loading purchases:', error);
@@ -73,6 +79,11 @@ const PurchasesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentBusiness) {
+      toast.error('Please select a business first');
+      return;
+    }
+
     if (!newPurchase.product || !newPurchase.quantity || !newPurchase.price) {
       toast.error('Please fill in all required fields');
       return;
@@ -89,7 +100,7 @@ const PurchasesPage = () => {
         notes: newPurchase.notes || ''
       };
       
-      await addPurchase(purchaseEntry);
+      await addPurchase(currentBusiness.id, purchaseEntry);
       await loadPurchases();
       setNewPurchase({ date: formatDate(new Date()) }); // Reset form
       toast.success('Purchase entry added successfully');

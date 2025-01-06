@@ -7,6 +7,8 @@ import { Loader2, Plus } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
+import { useBusiness } from '@/contexts/BusinessContext';
+import { toast } from 'sonner';
 
 interface ExpenseFormData {
   date: string;
@@ -17,6 +19,7 @@ interface ExpenseFormData {
 }
 
 const ExpensesPage = () => {
+  const { currentBusiness } = useBusiness();
   const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,18 +35,30 @@ const ExpensesPage = () => {
   });
 
   useEffect(() => {
-    loadExpenses();
+    if (currentBusiness) {
+      loadExpenses();
+    }
     loadCategories();
-  }, []);
+  }, [currentBusiness]);
 
   const loadExpenses = async () => {
-    const data = await getExpenses();
-    setExpenses(data);
+    if (!currentBusiness) return;
+    
+    try {
+      const data = await getExpenses(currentBusiness.id);
+      setExpenses(data);
+    } catch (error) {
+      console.error('Error loading expenses:', error);
+    }
   };
 
   const loadCategories = async () => {
-    const data = await getExpenseCategories();
-    setCategories(data);
+    try {
+      const data = await getExpenseCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
   };
 
   const handleInputChange = (name: keyof ExpenseFormData, value: string | number) => {
@@ -70,9 +85,14 @@ const ExpensesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentBusiness) {
+      toast.error('Please select a business first');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      await addExpense(formData);
+      await addExpense(currentBusiness.id, formData);
       await loadExpenses();
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -81,8 +101,10 @@ const ExpensesPage = () => {
         amount: 0,
         notes: ''
       });
+      toast.success('Expense added successfully');
     } catch (error) {
       console.error('Error adding expense:', error);
+      toast.error('Failed to add expense');
     } finally {
       setIsSubmitting(false);
     }

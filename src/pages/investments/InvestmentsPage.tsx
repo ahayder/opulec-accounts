@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addInvestment, getInvestments, type InvestmentEntry } from '@/utils/database';
+import { useBusiness } from '@/contexts/BusinessContext';
+import { toast } from 'sonner';
 
 interface InvestmentFormData {
   date: string;
@@ -12,6 +14,7 @@ interface InvestmentFormData {
 }
 
 const InvestmentsPage = () => {
+  const { currentBusiness } = useBusiness();
   const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -23,15 +26,20 @@ const InvestmentsPage = () => {
   });
 
   useEffect(() => {
-    loadInvestments();
-  }, []);
+    if (currentBusiness) {
+      loadInvestments();
+    }
+  }, [currentBusiness]);
 
   const loadInvestments = async () => {
+    if (!currentBusiness) return;
+    
     try {
-      const data = await getInvestments();
+      const data = await getInvestments(currentBusiness.id);
       setInvestments(data);
     } catch (error) {
       console.error('Error loading investments:', error);
+      toast.error('Failed to load investments');
     }
   };
 
@@ -44,9 +52,14 @@ const InvestmentsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentBusiness) {
+      toast.error('Please select a business first');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      await addInvestment(formData);
+      await addInvestment(currentBusiness.id, formData);
       await loadInvestments();
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -54,8 +67,10 @@ const InvestmentsPage = () => {
         amount: 0,
         note: ''
       });
+      toast.success('Investment added successfully');
     } catch (error) {
       console.error('Error adding investment:', error);
+      toast.error('Failed to add investment');
     } finally {
       setIsSubmitting(false);
     }

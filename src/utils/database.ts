@@ -21,6 +21,10 @@ export interface PurchaseEntry {
   price: number;
   total: number;
   notes?: string;
+  supplier?: string;
+  gender?: string;
+  color?: string;
+  dialColor?: string;
 }
 
 export interface ExpenseEntry {

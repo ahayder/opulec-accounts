@@ -24,6 +24,10 @@ interface PurchaseFormData {
   price: number;
   total: number;
   notes: string;
+  supplier: string;
+  gender: string;
+  color: string;
+  dialColor: string;
 }
 
 const InventoryPage = () => {
@@ -40,7 +44,11 @@ const InventoryPage = () => {
     quantity: 0,
     price: 0,
     total: 0,
-    notes: ''
+    notes: '',
+    supplier: '',
+    gender: '',
+    color: '',
+    dialColor: ''
   });
 
   useEffect(() => {
@@ -105,7 +113,11 @@ const InventoryPage = () => {
         quantity: 0,
         price: 0,
         total: 0,
-        notes: ''
+        notes: '',
+        supplier: '',
+        gender: '',
+        color: '',
+        dialColor: ''
       });
       toast.success('Purchase added successfully');
     } catch (error) {
@@ -181,6 +193,10 @@ const InventoryPage = () => {
                 <TableRow>
                   <TableHead className="w-[120px]">Date</TableHead>
                   <TableHead className="w-[200px]">Product</TableHead>
+                  <TableHead className="w-[150px]">Supplier</TableHead>
+                  <TableHead className="w-[100px]">Gender</TableHead>
+                  <TableHead className="w-[100px]">Color</TableHead>
+                  <TableHead className="w-[100px]">Dial Color</TableHead>
                   <TableHead className="text-right w-[100px]">Quantity</TableHead>
                   <TableHead className="text-right w-[120px]">Price</TableHead>
                   <TableHead className="text-right w-[120px]">Total</TableHead>
@@ -190,7 +206,7 @@ const InventoryPage = () => {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <div className="flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
                         Loading purchases data...
@@ -199,7 +215,7 @@ const InventoryPage = () => {
                   </TableRow>
                 ) : purchases.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground">
                       No purchase entries yet
                     </TableCell>
                   </TableRow>
@@ -208,6 +224,10 @@ const InventoryPage = () => {
                     <TableRow key={purchase.id}>
                       <TableCell>{new Date(purchase.date).toLocaleDateString()}</TableCell>
                       <TableCell>{purchase.product}</TableCell>
+                      <TableCell>{purchase.supplier}</TableCell>
+                      <TableCell>{purchase.gender}</TableCell>
+                      <TableCell>{purchase.color}</TableCell>
+                      <TableCell>{purchase.dialColor}</TableCell>
                       <TableCell className="text-right">{purchase.quantity}</TableCell>
                       <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
                       <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
@@ -262,6 +282,54 @@ const InventoryPage = () => {
                     value={formData.product}
                     onChange={(e) => handleInputChange('product', e.target.value)}
                     placeholder="Enter product name"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="supplier">Supplier</Label>
+                  <Input
+                    id="supplier"
+                    type="text"
+                    value={formData.supplier}
+                    onChange={(e) => handleInputChange('supplier', e.target.value)}
+                    placeholder="Enter supplier name"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="gender">Gender</Label>
+                  <Input
+                    id="gender"
+                    type="text"
+                    value={formData.gender}
+                    onChange={(e) => handleInputChange('gender', e.target.value)}
+                    placeholder="Enter gender"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="color">Color</Label>
+                  <Input
+                    id="color"
+                    type="text"
+                    value={formData.color}
+                    onChange={(e) => handleInputChange('color', e.target.value)}
+                    placeholder="Enter color"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dialColor">Dial Color</Label>
+                  <Input
+                    id="dialColor"
+                    type="text"
+                    value={formData.dialColor}
+                    onChange={(e) => handleInputChange('dialColor', e.target.value)}
+                    placeholder="Enter dial color"
                     className="w-full"
                     disabled={isSubmitting}
                   />

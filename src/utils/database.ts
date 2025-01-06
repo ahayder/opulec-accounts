@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where, getDoc } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -14,6 +14,7 @@ export interface SaleEntry {
   gender?: string;
   color?: string;
   dialColor?: string;
+  isDeleted?: boolean;
 }
 
 export interface PurchaseEntry {
@@ -28,6 +29,7 @@ export interface PurchaseEntry {
   gender?: string;
   color?: string;
   dialColor?: string;
+  isDeleted?: boolean;
 }
 
 export interface ExpenseEntry {
@@ -37,6 +39,7 @@ export interface ExpenseEntry {
   description: string;
   amount: number;
   notes?: string;
+  isDeleted?: boolean;
 }
 
 export interface ExpenseCategory {
@@ -115,8 +118,9 @@ export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
     batch.set(saleRef, {
       ...sale,
       product: normalizedProduct,
-      date: Timestamp.fromDate(dayjs(sale.date, 'DD-MMM-YYYY').toDate()),
-      createdAt: Timestamp.now()
+      date: sale.date, // Store date as string
+      createdAt: Timestamp.now(),
+      isDeleted: false
     });
 
     // Update inventory
@@ -133,25 +137,27 @@ export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
 
 export const getSales = async (): Promise<SaleEntry[]> => {
   try {
-    const q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'sales'));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
-      return {
-        id: doc.id,
-        date,
-        product: data.product,
-        order_number: data.order_number,
-        quantity: data.quantity,
-        price: data.price,
-        total: data.total,
-        notes: data.notes,
-        gender: data.gender,
-        color: data.color,
-        dialColor: data.dialColor
-      } as SaleEntry;
-    });
+    return querySnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          date: data.date,
+          product: data.product,
+          order_number: data.order_number,
+          quantity: data.quantity,
+          price: data.price,
+          total: data.total,
+          notes: data.notes,
+          gender: data.gender,
+          color: data.color,
+          dialColor: data.dialColor,
+          isDeleted: data.isDeleted
+        } as SaleEntry;
+      })
+      .filter(sale => !sale.isDeleted); // Filter out deleted sales in memory
   } catch (error) {
     console.error('Error getting sales:', error);
     throw error;
@@ -176,8 +182,9 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
     batch.set(purchaseRef, {
       ...purchase,
       product: normalizedProduct,
-      date: Timestamp.fromDate(dayjs(purchase.date, 'DD-MMM-YYYY').toDate()),
-      createdAt: Timestamp.now()
+      date: purchase.date, // Keep the formatted date string
+      createdAt: Timestamp.now(),
+      isDeleted: false
     });
 
     // Update inventory
@@ -185,6 +192,8 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
 
     // Commit the batch
     await batch.commit();
+    
+    // Return the new purchase ID
     return purchaseRef.id;
   } catch (error) {
     console.error('Error adding purchase:', error);
@@ -194,25 +203,27 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
 
 export const getPurchases = async (): Promise<PurchaseEntry[]> => {
   try {
-    const q = query(collection(db, 'purchases'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'purchases'));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
-      return {
-        id: doc.id,
-        date,
-        product: data.product,
-        quantity: data.quantity,
-        price: data.price,
-        total: data.total,
-        notes: data.notes,
-        supplier: data.supplier,
-        gender: data.gender,
-        color: data.color,
-        dialColor: data.dialColor
-      } as PurchaseEntry;
-    });
+    return querySnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          date: data.date,
+          product: data.product,
+          quantity: data.quantity,
+          price: data.price,
+          total: data.total,
+          notes: data.notes,
+          supplier: data.supplier,
+          gender: data.gender,
+          color: data.color,
+          dialColor: data.dialColor,
+          isDeleted: data.isDeleted
+        } as PurchaseEntry;
+      })
+      .filter(purchase => !purchase.isDeleted); // Filter out deleted purchases in memory
   } catch (error) {
     console.error('Error getting purchases:', error);
     throw error;
@@ -236,7 +247,11 @@ export const addExpense = async (expense: Omit<ExpenseEntry, 'id'>) => {
 
 export const getExpenses = async (): Promise<ExpenseEntry[]> => {
   try {
-    const q = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'));
+    // Simplified query without composite index
+    const q = query(
+      collection(db, 'expenses'),
+      where('isDeleted', '!=', true)
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -247,7 +262,8 @@ export const getExpenses = async (): Promise<ExpenseEntry[]> => {
         category: data.category,
         description: data.description,
         amount: data.amount,
-        notes: data.notes
+        notes: data.notes,
+        isDeleted: data.isDeleted
       } as ExpenseEntry;
     });
   } catch (error) {
@@ -265,7 +281,11 @@ export const deleteExpense = async (expenseId: string): Promise<void> => {
       throw new Error('Expense not found');
     }
     
-    await deleteDoc(expenseRef);
+    // Soft delete the expense
+    await updateDoc(expenseRef, {
+      isDeleted: true,
+      deletedAt: Timestamp.now()
+    });
   } catch (error) {
     console.error('Error deleting expense:', error);
     throw error;
@@ -579,8 +599,11 @@ export const deleteSale = async (saleId: string): Promise<void> => {
     // Start a batch write
     const batch = writeBatch(db);
 
-    // Delete the sale document
-    batch.delete(saleRef);
+    // Soft delete the sale document
+    batch.update(saleRef, {
+      isDeleted: true,
+      deletedAt: Timestamp.now()
+    });
 
     // Update inventory (add back the quantity)
     await updateInventory(saleData.product, saleData.quantity);
@@ -608,8 +631,11 @@ export const deletePurchase = async (purchaseId: string): Promise<void> => {
     // Start a batch write
     const batch = writeBatch(db);
 
-    // Delete the purchase document
-    batch.delete(purchaseRef);
+    // Soft delete the purchase document
+    batch.update(purchaseRef, {
+      isDeleted: true,
+      deletedAt: Timestamp.now()
+    });
 
     // Update inventory (subtract the quantity since we're removing the purchase)
     await updateInventory(purchaseData.product, -purchaseData.quantity);
@@ -618,6 +644,184 @@ export const deletePurchase = async (purchaseId: string): Promise<void> => {
     await batch.commit();
   } catch (error) {
     console.error('Error deleting purchase:', error);
+    throw error;
+  }
+};
+
+// Functions to get deleted records
+export const getDeletedSales = async (): Promise<SaleEntry[]> => {
+  try {
+    const q = query(
+      collection(db, 'sales'), 
+      where('isDeleted', '==', true),
+      orderBy('deletedAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
+      return {
+        id: doc.id,
+        date,
+        product: data.product,
+        order_number: data.order_number,
+        quantity: data.quantity,
+        price: data.price,
+        total: data.total,
+        notes: data.notes,
+        gender: data.gender,
+        color: data.color,
+        dialColor: data.dialColor,
+        isDeleted: data.isDeleted
+      } as SaleEntry;
+    });
+  } catch (error) {
+    console.error('Error getting deleted sales:', error);
+    throw error;
+  }
+};
+
+export const getDeletedPurchases = async (): Promise<PurchaseEntry[]> => {
+  try {
+    // Simplified query without composite index
+    const q = query(
+      collection(db, 'purchases'),
+      where('isDeleted', '==', true)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
+      return {
+        id: doc.id,
+        date,
+        product: data.product,
+        quantity: data.quantity,
+        price: data.price,
+        total: data.total,
+        notes: data.notes,
+        supplier: data.supplier,
+        gender: data.gender,
+        color: data.color,
+        dialColor: data.dialColor,
+        isDeleted: data.isDeleted
+      } as PurchaseEntry;
+    });
+  } catch (error) {
+    console.error('Error getting deleted purchases:', error);
+    throw error;
+  }
+};
+
+export const getDeletedExpenses = async (): Promise<ExpenseEntry[]> => {
+  try {
+    const q = query(
+      collection(db, 'expenses'),
+      where('isDeleted', '==', true),
+      orderBy('deletedAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
+      return {
+        id: doc.id,
+        date,
+        category: data.category,
+        description: data.description,
+        amount: data.amount,
+        notes: data.notes,
+        isDeleted: data.isDeleted
+      } as ExpenseEntry;
+    });
+  } catch (error) {
+    console.error('Error getting deleted expenses:', error);
+    throw error;
+  }
+};
+
+// Functions to restore deleted records
+export const restoreSale = async (saleId: string): Promise<void> => {
+  try {
+    const saleRef = doc(db, 'sales', saleId);
+    const saleDoc = await getDoc(saleRef);
+    
+    if (!saleDoc.exists()) {
+      throw new Error('Sale not found');
+    }
+
+    const saleData = saleDoc.data();
+    
+    // Start a batch write
+    const batch = writeBatch(db);
+
+    // Restore the sale document
+    batch.update(saleRef, {
+      isDeleted: false,
+      deletedAt: null,
+      restoredAt: Timestamp.now()
+    });
+
+    // Update inventory (subtract the quantity again since we're restoring the sale)
+    await updateInventory(saleData.product, -saleData.quantity);
+
+    // Commit the batch
+    await batch.commit();
+  } catch (error) {
+    console.error('Error restoring sale:', error);
+    throw error;
+  }
+};
+
+export const restorePurchase = async (purchaseId: string): Promise<void> => {
+  try {
+    const purchaseRef = doc(db, 'purchases', purchaseId);
+    const purchaseDoc = await getDoc(purchaseRef);
+    
+    if (!purchaseDoc.exists()) {
+      throw new Error('Purchase not found');
+    }
+
+    const purchaseData = purchaseDoc.data();
+    
+    // Start a batch write
+    const batch = writeBatch(db);
+
+    // Restore the purchase document
+    batch.update(purchaseRef, {
+      isDeleted: false,
+      deletedAt: null,
+      restoredAt: Timestamp.now()
+    });
+
+    // Update inventory (add the quantity back since we're restoring the purchase)
+    await updateInventory(purchaseData.product, purchaseData.quantity);
+
+    // Commit the batch
+    await batch.commit();
+  } catch (error) {
+    console.error('Error restoring purchase:', error);
+    throw error;
+  }
+};
+
+export const restoreExpense = async (expenseId: string): Promise<void> => {
+  try {
+    const expenseRef = doc(db, 'expenses', expenseId);
+    const expenseDoc = await getDoc(expenseRef);
+    
+    if (!expenseDoc.exists()) {
+      throw new Error('Expense not found');
+    }
+    
+    // Restore the expense
+    await updateDoc(expenseRef, {
+      isDeleted: false,
+      deletedAt: null,
+      restoredAt: Timestamp.now()
+    });
+  } catch (error) {
+    console.error('Error restoring expense:', error);
     throw error;
   }
 }; 

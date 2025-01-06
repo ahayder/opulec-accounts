@@ -14,6 +14,8 @@ import {
   getSales, 
   addSale,
   deleteSale,
+  getDeletedSales,
+  restoreSale,
   type SaleEntry,
   getProductCategories,
   getColorCategories,
@@ -21,7 +23,7 @@ import {
   type Category
 } from '@/utils/database';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight, Trash2 } from "lucide-react";
+import { Loader2, ChevronRight, Trash2, RotateCcw } from "lucide-react";
 import dayjs from 'dayjs';
 import { cn } from "@/lib/utils";
 import CategorySelect from '@/components/form/CategorySelect';
@@ -36,6 +38,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+
+// Define Firestore Timestamp type for internal use
+type FirestoreTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+};
 
 // Helper function to format date as DD-MMM-YYYY
 const formatDate = (date: Date | string): string => {
@@ -47,6 +56,14 @@ const dateToInputValue = (date: Date | string): string => {
   return dayjs(date).format('YYYY-MM-DD');
 };
 
+// Helper function to handle Firestore timestamp or string date
+const formatSaleDate = (date: string | FirestoreTimestamp): string => {
+  if (typeof date === 'object' && 'seconds' in date) {
+    return formatDate(new Date(date.seconds * 1000));
+  }
+  return date;
+};
+
 const SalesPage = () => {
   const [sales, setSales] = useState<SaleEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,6 +73,8 @@ const SalesPage = () => {
   const [colorCategories, setColorCategories] = useState<Category[]>([]);
   const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
   const [saleToDelete, setSaleToDelete] = useState<SaleEntry | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   
   const [newSale, setNewSale] = useState<Partial<SaleEntry>>({
     date: formatDate(new Date())
@@ -63,13 +82,13 @@ const SalesPage = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [showDeleted]);
 
   const loadData = async () => {
     try {
       setIsLoading(true);
       const [salesData, productCats, colorCats, dialColorCats] = await Promise.all([
-        getSales(),
+        showDeleted ? getDeletedSales() : getSales(),
         getProductCategories(),
         getColorCategories(),
         getDialColorCategories()
@@ -157,6 +176,22 @@ const SalesPage = () => {
     }
   };
 
+  const handleRestore = async (sale: SaleEntry) => {
+    if (!sale.id) return;
+    
+    try {
+      setIsRestoring(true);
+      await restoreSale(sale.id);
+      await loadData();
+      toast.success('Sale entry restored successfully');
+    } catch (error) {
+      console.error('Error restoring sale:', error);
+      toast.error('Failed to restore sale entry');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -169,6 +204,16 @@ const SalesPage = () => {
           <div>
             <h1 className="text-2xl font-bold">Sales</h1>
             <p className="text-muted-foreground">Record and manage your sales transactions</p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="show-deleted" className="text-sm">
+              Show Deleted Records
+            </Label>
+            <Switch
+              id="show-deleted"
+              checked={showDeleted}
+              onCheckedChange={setShowDeleted}
+            />
           </div>
         </div>
 
@@ -202,13 +247,13 @@ const SalesPage = () => {
               ) : sales.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={11} className="text-center text-muted-foreground">
-                    No sales entries yet
+                    {showDeleted ? 'No deleted sales entries' : 'No sales entries yet'}
                   </TableCell>
                 </TableRow>
               ) : (
                 sales.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell>{sale.date}</TableCell>
+                  <TableRow key={sale.id} className={cn(sale.isDeleted && "bg-muted/50")}>
+                    <TableCell>{formatSaleDate(sale.date)}</TableCell>
                     <TableCell>{sale.product}</TableCell>
                     <TableCell>{sale.order_number}</TableCell>
                     <TableCell>{sale.gender}</TableCell>
@@ -219,14 +264,26 @@ const SalesPage = () => {
                     <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
                     <TableCell>{sale.notes}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSaleToDelete(sale)}
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {showDeleted ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRestore(sale)}
+                          className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
+                          disabled={isRestoring}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSaleToDelete(sale)}
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

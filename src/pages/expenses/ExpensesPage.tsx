@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory, deleteExpense } from '@/utils/database';
-import { Loader2, ChevronRight, Trash2 } from 'lucide-react';
+import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory, deleteExpense, getDeletedExpenses, restoreExpense } from '@/utils/database';
+import { Loader2, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import CategorySelect from '@/components/form/CategorySelect';
@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
 
 interface ExpenseFormData {
   date: string;
@@ -41,6 +42,8 @@ const ExpensesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [expenseToDelete, setExpenseToDelete] = useState<DBExpenseEntry | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   
   const [formData, setFormData] = useState<ExpenseFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -54,6 +57,10 @@ const ExpensesPage = () => {
     loadExpenses();
     loadCategories();
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [showDeleted]);
 
   const loadExpenses = async () => {
     try {
@@ -75,6 +82,19 @@ const ExpensesPage = () => {
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Failed to load categories');
+    }
+  };
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const expensesData = await (showDeleted ? getDeletedExpenses() : getExpenses());
+      setExpenses(expensesData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Failed to load expenses data');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -137,6 +157,22 @@ const ExpensesPage = () => {
     }
   };
 
+  const handleRestore = async (expense: DBExpenseEntry) => {
+    if (!expense.id) return;
+    
+    try {
+      setIsRestoring(true);
+      await restoreExpense(expense.id);
+      await loadData();
+      toast.success('Expense entry restored successfully');
+    } catch (error) {
+      console.error('Error restoring expense:', error);
+      toast.error('Failed to restore expense entry');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -149,6 +185,16 @@ const ExpensesPage = () => {
           <div>
             <h1 className="text-2xl font-bold">Expenses</h1>
             <p className="text-muted-foreground">Track and manage your business expenses</p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="show-deleted" className="text-sm">
+              Show Deleted Records
+            </Label>
+            <Switch
+              id="show-deleted"
+              checked={showDeleted}
+              onCheckedChange={setShowDeleted}
+            />
           </div>
         </div>
 
@@ -177,26 +223,38 @@ const ExpensesPage = () => {
               ) : expenses.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No expenses entries yet
+                    {showDeleted ? 'No deleted expenses entries' : 'No expenses entries yet'}
                   </TableCell>
                 </TableRow>
               ) : (
                 expenses.map((expense) => (
-                  <TableRow key={expense.id}>
+                  <TableRow key={expense.id} className={cn(expense.isDeleted && "bg-muted/50")}>
                     <TableCell>{expense.date}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell className="text-right">৳{expense.amount.toFixed(2)}</TableCell>
                     <TableCell>{expense.notes}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setExpenseToDelete(expense)}
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {showDeleted ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRestore(expense)}
+                          className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
+                          disabled={isRestoring}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setExpenseToDelete(expense)}
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

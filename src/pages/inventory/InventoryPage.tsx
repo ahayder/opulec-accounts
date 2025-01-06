@@ -43,6 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import dayjs from 'dayjs';
 
 interface PurchaseFormData {
   date: string;
@@ -56,6 +57,10 @@ interface PurchaseFormData {
   color: string;
   dialColor: string;
 }
+
+const formatDate = (date: string): string => {
+  return dayjs(date).format('DD-MMM-YYYY');
+};
 
 const InventoryPage = () => {
   const [inventory, setInventory] = useState<InventoryEntry[]>([]);
@@ -105,6 +110,12 @@ const InventoryPage = () => {
         getColorCategories(),
         getDialColorCategories()
       ]);
+      console.log('Loaded categories:', {
+        products: productCats,
+        suppliers: supplierCats,
+        colors: colorCats,
+        dialColors: dialColorCats
+      });
       setInventory(inventoryData);
       setPurchases(purchasesData);
       setProductCategories(productCats);
@@ -188,7 +199,15 @@ const InventoryPage = () => {
 
     setIsSubmitting(true);
     try {
-      await addPurchase(formData);
+      const purchaseEntry = {
+        ...formData,
+        date: formatDate(formData.date),
+        quantity: Number(formData.quantity),
+        price: Number(formData.price),
+        total: Number(formData.quantity) * Number(formData.price)
+      };
+      
+      await addPurchase(purchaseEntry);
       await loadData();
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -321,7 +340,7 @@ const InventoryPage = () => {
                 ) : (
                   purchases.map((purchase) => (
                     <TableRow key={purchase.id}>
-                      <TableCell>{new Date(purchase.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{purchase.date}</TableCell>
                       <TableCell>{purchase.product}</TableCell>
                       <TableCell>{purchase.supplier}</TableCell>
                       <TableCell>{purchase.gender}</TableCell>

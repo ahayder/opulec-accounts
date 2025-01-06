@@ -8,6 +8,7 @@ import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { AuthProvider } from './contexts/AuthContext'
 import { Toaster } from 'sonner'
+import { BusinessProvider } from './contexts/BusinessContext'
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -36,8 +37,10 @@ if (!rootElement?.innerHTML) {
     <React.StrictMode>
       <BrowserRouter>
         <AuthProvider>
-          <App />
-          <Toaster position="top-right" />
+          <BusinessProvider>
+            <App />
+            <Toaster position="top-right" />
+          </BusinessProvider>
         </AuthProvider>
       </BrowserRouter>
     </React.StrictMode>,

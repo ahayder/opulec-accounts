@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUpIcon, ArrowDownIcon } from '@radix-ui/react-icons';
+import { useBusiness } from '@/contexts/BusinessContext';
 import dayjs from 'dayjs';
 
 interface DashboardMetrics {
@@ -24,6 +25,7 @@ interface DashboardMetrics {
 }
 
 const DashboardPage = () => {
+  const { currentBusiness, isLoading } = useBusiness();
   const [startDate, setStartDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
   const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -43,14 +45,16 @@ const DashboardPage = () => {
   });
 
   const calculateMetrics = async () => {
+    if (!currentBusiness) return;
+
     try {
       // Fetch all data
       const [sales, purchases, expenses, investments, assets] = await Promise.all([
-        getSales(),
-        getPurchases(),
-        getExpenses(),
-        getInvestments(),
-        getAssets()
+        getSales(currentBusiness.id),
+        getPurchases(currentBusiness.id),
+        getExpenses(currentBusiness.id),
+        getInvestments(currentBusiness.id),
+        getAssets(currentBusiness.id)
       ]);
 
       // Calculate time-based metrics
@@ -133,7 +137,7 @@ const DashboardPage = () => {
 
   useEffect(() => {
     calculateMetrics();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, currentBusiness]);
 
   const handleDateRangeClick = (range: 'week' | 'month' | '3months') => {
     const end = dayjs();
@@ -160,203 +164,217 @@ const DashboardPage = () => {
       <div className="h-16 border-b flex items-center">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Track your business performance and financial metrics</p>
+          <p className="text-muted-foreground">
+            {currentBusiness 
+              ? `Track ${currentBusiness.name}'s performance and financial metrics` 
+              : 'Select a business to view metrics'}
+          </p>
         </div>
       </div>
 
-      {/* Time-based Metrics Section */}
-      <div className="space-y-6">
-        <h2 className="text-xl font-semibold">Performance Metrics</h2>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="startDate" className="text-sm font-medium whitespace-nowrap">From:</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full md:w-40"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="endDate" className="text-sm font-medium whitespace-nowrap">To:</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full md:w-40"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDateRangeClick('week')}
-                  className="flex-1 md:flex-none text-sm"
-                >
-                  Last 7 Days
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDateRangeClick('month')}
-                  className="flex-1 md:flex-none text-sm"
-                >
-                  Last Month
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDateRangeClick('3months')}
-                  className="flex-1 md:flex-none text-sm"
-                >
-                  Last 3 Months
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-500">Total Sales</h3>
-                <ArrowUpIcon className="w-4 h-4 text-green-500" />
-              </div>
-              <p className="text-2xl font-bold">৳{metrics.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-500">Total COGS</h3>
-                <ArrowDownIcon className="w-4 h-4 text-red-500" />
-              </div>
-              <p className="text-2xl font-bold">৳{metrics.totalCOGS.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-500">Gross Profit</h3>
-                {metrics.grossProfit >= 0 ? (
-                  <ArrowUpIcon className="w-4 h-4 text-green-500" />
-                ) : (
-                  <ArrowDownIcon className="w-4 h-4 text-red-500" />
-                )}
-              </div>
-              <p className={`text-2xl font-bold ${metrics.grossProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                ৳{metrics.grossProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-500">Operating Expenses</h3>
-                <ArrowDownIcon className="w-4 h-4 text-red-500" />
-              </div>
-              <p className="text-2xl font-bold">৳{metrics.totalOperatingExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-500">Net Profit</h3>
-                {metrics.netProfit >= 0 ? (
-                  <ArrowUpIcon className="w-4 h-4 text-green-500" />
-                ) : (
-                  <ArrowDownIcon className="w-4 h-4 text-red-500" />
-                )}
-              </div>
-              <p className={`text-2xl font-bold ${metrics.netProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                ৳{metrics.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </p>
-            </CardContent>
-          </Card>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      </div>
-
-      {/* Portfolio Overview Section */}
-      <div className="space-y-6 mt-8 pt-8 border-t">
-        <h2 className="text-xl font-semibold">Portfolio Overview</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Investment Summary */}
+      ) : !currentBusiness ? (
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <p className="text-muted-foreground">Please select or create a business to view metrics</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Time-based Metrics Section */}
           <div className="space-y-6">
-            <h3 className="text-lg font-medium">Investment Summary</h3>
+            <h2 className="text-xl font-semibold">Performance Metrics</h2>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="startDate" className="text-sm font-medium whitespace-nowrap">From:</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="endDate" className="text-sm font-medium whitespace-nowrap">To:</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleDateRangeClick('week')}
+                      className="flex-1 text-sm"
+                    >
+                      Last 7 Days
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleDateRangeClick('month')}
+                      className="flex-1 text-sm"
+                    >
+                      Last Month
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleDateRangeClick('3months')}
+                      className="flex-1 text-sm"
+                    >
+                      Last 3 Months
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 gap-6">
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Total Investments</h3>
+                    <h3 className="text-sm font-medium text-gray-500">Total Sales</h3>
                     <ArrowUpIcon className="w-4 h-4 text-green-500" />
                   </div>
-                  <p className="text-2xl font-bold">৳{metrics.totalInvestments.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-2xl font-bold">৳{metrics.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Number of Investors</h3>
-                    <ArrowUpIcon className="w-4 h-4 text-green-500" />
-                  </div>
-                  <p className="text-2xl font-bold">{metrics.investorCount}</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Asset Summary */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium">Asset Summary</h3>
-            <div className="grid grid-cols-1 gap-6">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Total Asset Value</h3>
-                    <ArrowUpIcon className="w-4 h-4 text-green-500" />
-                  </div>
-                  <p className="text-2xl font-bold">৳{metrics.totalAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Total Depreciation</h3>
+                    <h3 className="text-sm font-medium text-gray-500">Total COGS</h3>
                     <ArrowDownIcon className="w-4 h-4 text-red-500" />
                   </div>
-                  <p className="text-2xl font-bold">৳{metrics.totalDepreciation.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-2xl font-bold">৳{metrics.totalCOGS.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Net Asset Value</h3>
-                    {metrics.netAssetValue >= 0 ? (
+                    <h3 className="text-sm font-medium text-gray-500">Gross Profit</h3>
+                    {metrics.grossProfit >= 0 ? (
                       <ArrowUpIcon className="w-4 h-4 text-green-500" />
                     ) : (
                       <ArrowDownIcon className="w-4 h-4 text-red-500" />
                     )}
                   </div>
-                  <p className={`text-2xl font-bold ${metrics.netAssetValue < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    ৳{metrics.netAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  <p className={`text-2xl font-bold ${metrics.grossProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    ৳{metrics.grossProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-500">Operating Expenses</h3>
+                    <ArrowDownIcon className="w-4 h-4 text-red-500" />
+                  </div>
+                  <p className="text-2xl font-bold">৳{metrics.totalOperatingExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-500">Net Profit</h3>
+                    {metrics.netProfit >= 0 ? (
+                      <ArrowUpIcon className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <ArrowDownIcon className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                  <p className={`text-2xl font-bold ${metrics.netProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    ৳{metrics.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </p>
                 </CardContent>
               </Card>
             </div>
           </div>
+
+          {/* Portfolio Overview Section */}
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Portfolio Overview</h2>
+            
+            {/* Investment Summary */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium">Investment Summary</h3>
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-500">Total Investments</h3>
+                      <ArrowUpIcon className="w-4 h-4 text-green-500" />
+                    </div>
+                    <p className="text-2xl font-bold">৳{metrics.totalInvestments.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-500">Number of Investors</h3>
+                      <ArrowUpIcon className="w-4 h-4 text-green-500" />
+                    </div>
+                    <p className="text-2xl font-bold">{metrics.investorCount}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Asset Summary */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium">Asset Summary</h3>
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-500">Total Asset Value</h3>
+                      <ArrowUpIcon className="w-4 h-4 text-green-500" />
+                    </div>
+                    <p className="text-2xl font-bold">৳{metrics.totalAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-500">Total Depreciation</h3>
+                      <ArrowDownIcon className="w-4 h-4 text-red-500" />
+                    </div>
+                    <p className="text-2xl font-bold">৳{metrics.totalDepreciation.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-500">Net Asset Value</h3>
+                      {metrics.netAssetValue >= 0 ? (
+                        <ArrowUpIcon className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <ArrowDownIcon className="w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+                    <p className={`text-2xl font-bold ${metrics.netAssetValue < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ৳{metrics.netAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

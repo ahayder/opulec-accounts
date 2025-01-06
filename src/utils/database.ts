@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -61,9 +61,9 @@ const formatDate = (date: Date): string => {
 };
 
 // Sales functions
-export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
+export const addSale = async (businessId: string, sale: Omit<SaleEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, 'sales'), {
+    const docRef = await addDoc(collection(db, `businesses/${businessId}/sales`), {
       ...sale,
       date: Timestamp.fromDate(dayjs(sale.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
@@ -75,13 +75,12 @@ export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
   }
 };
 
-export const getSales = async (): Promise<SaleEntry[]> => {
+export const getSales = async (businessId: string): Promise<SaleEntry[]> => {
   try {
-    const q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, `businesses/${businessId}/sales`), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      // Convert Timestamp to formatted date string if it's a Timestamp
       const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
@@ -101,9 +100,9 @@ export const getSales = async (): Promise<SaleEntry[]> => {
 };
 
 // Purchases functions
-export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
+export const addPurchase = async (businessId: string, purchase: Omit<PurchaseEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, 'purchases'), {
+    const docRef = await addDoc(collection(db, `businesses/${businessId}/purchases`), {
       ...purchase,
       date: Timestamp.fromDate(dayjs(purchase.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
@@ -115,13 +114,12 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
   }
 };
 
-export const getPurchases = async (): Promise<PurchaseEntry[]> => {
+export const getPurchases = async (businessId: string): Promise<PurchaseEntry[]> => {
   try {
-    const q = query(collection(db, 'purchases'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, `businesses/${businessId}/purchases`), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      // Convert Timestamp to formatted date string if it's a Timestamp
       const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
@@ -140,9 +138,9 @@ export const getPurchases = async (): Promise<PurchaseEntry[]> => {
 };
 
 // Expenses functions
-export const addExpense = async (expense: Omit<ExpenseEntry, 'id'>) => {
+export const addExpense = async (businessId: string, expense: Omit<ExpenseEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, 'expenses'), {
+    const docRef = await addDoc(collection(db, `businesses/${businessId}/expenses`), {
       ...expense,
       date: Timestamp.fromDate(dayjs(expense.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
@@ -154,13 +152,12 @@ export const addExpense = async (expense: Omit<ExpenseEntry, 'id'>) => {
   }
 };
 
-export const getExpenses = async (): Promise<ExpenseEntry[]> => {
+export const getExpenses = async (businessId: string): Promise<ExpenseEntry[]> => {
   try {
-    const q = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, `businesses/${businessId}/expenses`), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      // Convert Timestamp to formatted date string if it's a Timestamp
       const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
@@ -206,24 +203,48 @@ export const getExpenseCategories = async (): Promise<ExpenseCategory[]> => {
   }
 };
 
-export const addAsset = async (asset: Omit<AssetEntry, 'id' | 'lastUpdated'>): Promise<void> => {
+// Assets functions
+export const addAsset = async (businessId: string, asset: Omit<AssetEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, 'assets'), {
+    const docRef = await addDoc(collection(db, `businesses/${businessId}/assets`), {
       ...asset,
-      lastUpdated: serverTimestamp(),
-      createdAt: serverTimestamp()
+      purchaseDate: Timestamp.fromDate(dayjs(asset.purchaseDate, 'DD-MMM-YYYY').toDate()),
+      createdAt: Timestamp.now()
     });
-    console.log('Asset added with ID:', docRef.id);
+    return docRef.id;
   } catch (error) {
     console.error('Error adding asset:', error);
     throw error;
   }
 };
 
-export const updateAssetDepreciation = async (assetId: string): Promise<void> => {
+export const getAssets = async (businessId: string): Promise<AssetEntry[]> => {
   try {
-    await updateDoc(doc(db, 'assets', assetId), {
-      lastUpdated: serverTimestamp()
+    const q = query(collection(db, `businesses/${businessId}/assets`), orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const purchaseDate = data.purchaseDate instanceof Timestamp ? formatDate(data.purchaseDate.toDate()) : data.purchaseDate;
+      return {
+        id: doc.id,
+        name: data.name,
+        purchaseDate,
+        cost: data.cost,
+        usefulLife: data.usefulLife,
+        lastUpdated: data.lastUpdated
+      } as AssetEntry;
+    });
+  } catch (error) {
+    console.error('Error getting assets:', error);
+    throw error;
+  }
+};
+
+export const updateAssetDepreciation = async (businessId: string, assetId: string): Promise<void> => {
+  try {
+    const docRef = doc(db, `businesses/${businessId}/assets`, assetId);
+    await updateDoc(docRef, {
+      lastUpdated: Timestamp.now()
     });
   } catch (error) {
     console.error('Error updating asset depreciation:', error);
@@ -231,25 +252,12 @@ export const updateAssetDepreciation = async (assetId: string): Promise<void> =>
   }
 };
 
-export const getAssets = async (): Promise<AssetEntry[]> => {
+// Investments functions
+export const addInvestment = async (businessId: string, investment: Omit<InvestmentEntry, 'id'>) => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'assets'));
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as AssetEntry));
-  } catch (error) {
-    console.error('Error getting assets:', error);
-    throw error;
-  }
-};
-
-// Investment functions
-export const addInvestment = async (investment: Omit<InvestmentEntry, 'id'>) => {
-  try {
-    const docRef = await addDoc(collection(db, 'investments'), {
+    const docRef = await addDoc(collection(db, `businesses/${businessId}/investments`), {
       ...investment,
-      date: Timestamp.fromDate(dayjs(investment.date).toDate()),
+      date: Timestamp.fromDate(dayjs(investment.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
     });
     return docRef.id;
@@ -259,13 +267,12 @@ export const addInvestment = async (investment: Omit<InvestmentEntry, 'id'>) => 
   }
 };
 
-export const getInvestments = async (): Promise<InvestmentEntry[]> => {
+export const getInvestments = async (businessId: string): Promise<InvestmentEntry[]> => {
   try {
-    const q = query(collection(db, 'investments'), orderBy('date', 'desc'));
+    const q = query(collection(db, `businesses/${businessId}/investments`), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      // Convert Timestamp to formatted date string if it's a Timestamp
       const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,

@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -55,6 +55,13 @@ export interface InvestmentEntry {
   note: string;
 }
 
+export interface InventoryEntry {
+  id?: string;
+  product: string;
+  quantity: number;
+  lastUpdated: Timestamp;
+}
+
 // Helper function to format date
 const formatDate = (date: Date): string => {
   return dayjs(date).format('DD-MMM-YYYY');
@@ -63,12 +70,39 @@ const formatDate = (date: Date): string => {
 // Sales functions
 export const addSale = async (businessId: string, sale: Omit<SaleEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, `businesses/${businessId}/sales`), {
+    // Check inventory before proceeding
+    const inventoryRef = collection(db, `businesses/${businessId}/inventory`);
+    const q = query(inventoryRef, where('product', '==', sale.product));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error('Product not found in inventory');
+    }
+
+    const inventoryDoc = querySnapshot.docs[0];
+    const currentQuantity = inventoryDoc.data().quantity;
+
+    if (currentQuantity < sale.quantity) {
+      throw new Error('Insufficient inventory');
+    }
+
+    // Start a batch write
+    const batch = writeBatch(db);
+
+    // Add the sale document
+    const saleRef = doc(collection(db, `businesses/${businessId}/sales`));
+    batch.set(saleRef, {
       ...sale,
       date: Timestamp.fromDate(dayjs(sale.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
     });
-    return docRef.id;
+
+    // Update inventory
+    await updateInventory(businessId, sale.product, -sale.quantity);
+
+    // Commit the batch
+    await batch.commit();
+    return saleRef.id;
   } catch (error) {
     console.error('Error adding sale:', error);
     throw error;
@@ -102,12 +136,23 @@ export const getSales = async (businessId: string): Promise<SaleEntry[]> => {
 // Purchases functions
 export const addPurchase = async (businessId: string, purchase: Omit<PurchaseEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, `businesses/${businessId}/purchases`), {
+    // Start a batch write
+    const batch = writeBatch(db);
+
+    // Add the purchase document
+    const purchaseRef = doc(collection(db, `businesses/${businessId}/purchases`));
+    batch.set(purchaseRef, {
       ...purchase,
       date: Timestamp.fromDate(dayjs(purchase.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
     });
-    return docRef.id;
+
+    // Update inventory
+    await updateInventory(businessId, purchase.product, purchase.quantity);
+
+    // Commit the batch
+    await batch.commit();
+    return purchaseRef.id;
   } catch (error) {
     console.error('Error adding purchase:', error);
     throw error;
@@ -284,6 +329,61 @@ export const getInvestments = async (businessId: string): Promise<InvestmentEntr
     });
   } catch (error) {
     console.error('Error getting investments:', error);
+    throw error;
+  }
+};
+
+// Inventory functions
+export const updateInventory = async (businessId: string, product: string, quantityChange: number): Promise<void> => {
+  try {
+    const inventoryRef = collection(db, `businesses/${businessId}/inventory`);
+    const q = query(inventoryRef, where('product', '==', product));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      // If product doesn't exist in inventory and we're adding stock
+      if (quantityChange > 0) {
+        await addDoc(inventoryRef, {
+          product,
+          quantity: quantityChange,
+          lastUpdated: Timestamp.now()
+        });
+      } else {
+        throw new Error('Product not found in inventory');
+      }
+    } else {
+      // Update existing inventory
+      const inventoryDoc = querySnapshot.docs[0];
+      const currentQuantity = inventoryDoc.data().quantity;
+      const newQuantity = currentQuantity + quantityChange;
+
+      if (newQuantity < 0) {
+        throw new Error('Insufficient inventory');
+      }
+
+      await updateDoc(doc(db, `businesses/${businessId}/inventory`, inventoryDoc.id), {
+        quantity: newQuantity,
+        lastUpdated: Timestamp.now()
+      });
+    }
+  } catch (error) {
+    console.error('Error updating inventory:', error);
+    throw error;
+  }
+};
+
+export const getInventory = async (businessId: string): Promise<InventoryEntry[]> => {
+  try {
+    const q = query(collection(db, `businesses/${businessId}/inventory`), orderBy('product', 'asc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      product: doc.data().product,
+      quantity: doc.data().quantity,
+      lastUpdated: doc.data().lastUpdated
+    }));
+  } catch (error) {
+    console.error('Error getting inventory:', error);
     throw error;
   }
 }; 

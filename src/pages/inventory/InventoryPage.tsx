@@ -10,11 +10,28 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getInventory, type InventoryEntry, getPurchases, type PurchaseEntry, addPurchase } from '@/utils/database';
+import { 
+  getInventory, 
+  getPurchases, 
+  addPurchase,
+  getProductCategories,
+  getSupplierCategories,
+  getColorCategories,
+  getDialColorCategories,
+  addProductCategory,
+  addSupplierCategory,
+  addColorCategory,
+  addDialColorCategory,
+  type InventoryEntry, 
+  type PurchaseEntry,
+  type Category
+} from '@/utils/database';
 import { Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CategorySelect from '@/components/form/CategorySelect';
+import GenderSelect from '@/components/form/GenderSelect';
 
 interface PurchaseFormData {
   date: string;
@@ -36,6 +53,11 @@ const InventoryPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [supplierCategories, setSupplierCategories] = useState<Category[]>([]);
+  const [colorCategories, setColorCategories] = useState<Category[]>([]);
+  const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
+  
   const [formData, setFormData] = useState<PurchaseFormData>({
     date: new Date().toISOString().split('T')[0],
     product: '',
@@ -56,12 +78,27 @@ const InventoryPage = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [inventoryData, purchasesData] = await Promise.all([
+      const [
+        inventoryData, 
+        purchasesData,
+        productCats,
+        supplierCats,
+        colorCats,
+        dialColorCats
+      ] = await Promise.all([
         getInventory(),
-        getPurchases()
+        getPurchases(),
+        getProductCategories(),
+        getSupplierCategories(),
+        getColorCategories(),
+        getDialColorCategories()
       ]);
       setInventory(inventoryData);
       setPurchases(purchasesData);
+      setProductCategories(productCats);
+      setSupplierCategories(supplierCats);
+      setColorCategories(colorCats);
+      setDialColorCategories(dialColorCats);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load inventory data');
@@ -83,6 +120,50 @@ const InventoryPage = () => {
       
       return updates;
     });
+  };
+
+  const handleAddProduct = async (name: string) => {
+    try {
+      await addProductCategory({ name });
+      const categories = await getProductCategories();
+      setProductCategories(categories);
+    } catch (error) {
+      console.error('Error adding product category:', error);
+      toast.error('Failed to add product');
+    }
+  };
+
+  const handleAddSupplier = async (name: string) => {
+    try {
+      await addSupplierCategory({ name });
+      const categories = await getSupplierCategories();
+      setSupplierCategories(categories);
+    } catch (error) {
+      console.error('Error adding supplier category:', error);
+      toast.error('Failed to add supplier');
+    }
+  };
+
+  const handleAddColor = async (name: string) => {
+    try {
+      await addColorCategory({ name });
+      const categories = await getColorCategories();
+      setColorCategories(categories);
+    } catch (error) {
+      console.error('Error adding color category:', error);
+      toast.error('Failed to add color');
+    }
+  };
+
+  const handleAddDialColor = async (name: string) => {
+    try {
+      await addDialColorCategory({ name });
+      const categories = await getDialColorCategories();
+      setDialColorCategories(categories);
+    } catch (error) {
+      console.error('Error adding dial color category:', error);
+      toast.error('Failed to add dial color');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -264,83 +345,86 @@ const InventoryPage = () => {
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="product">Product</Label>
-                  <Input
-                    id="product"
-                    type="text"
+                  <CategorySelect
                     value={formData.product}
-                    onChange={(e) => handleInputChange('product', e.target.value)}
-                    placeholder="Enter product name"
-                    className="w-full"
+                    onValueChange={(value) => handleInputChange('product', value)}
+                    categories={productCategories}
+                    onAddCategory={handleAddProduct}
+                    placeholder="Select product"
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="supplier">Supplier</Label>
-                  <Input
-                    id="supplier"
-                    type="text"
+                  <CategorySelect
                     value={formData.supplier}
-                    onChange={(e) => handleInputChange('supplier', e.target.value)}
-                    placeholder="Enter supplier name"
-                    className="w-full"
+                    onValueChange={(value) => handleInputChange('supplier', value)}
+                    categories={supplierCategories}
+                    onAddCategory={handleAddSupplier}
+                    placeholder="Select supplier"
                     disabled={isSubmitting}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="gender">Gender</Label>
-                  <Input
-                    id="gender"
-                    type="text"
-                    value={formData.gender}
-                    onChange={(e) => handleInputChange('gender', e.target.value)}
-                    placeholder="Enter gender"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  />
-                </div>
+
                 <div>
                   <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    type="text"
+                  <CategorySelect
                     value={formData.color}
-                    onChange={(e) => handleInputChange('color', e.target.value)}
-                    placeholder="Enter color"
-                    className="w-full"
+                    onValueChange={(value) => handleInputChange('color', value)}
+                    categories={colorCategories}
+                    onAddCategory={handleAddColor}
+                    placeholder="Select color"
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="dialColor">Dial Color</Label>
-                  <Input
-                    id="dialColor"
-                    type="text"
+                  <CategorySelect
                     value={formData.dialColor}
-                    onChange={(e) => handleInputChange('dialColor', e.target.value)}
-                    placeholder="Enter dial color"
-                    className="w-full"
+                    onValueChange={(value) => handleInputChange('dialColor', value)}
+                    categories={dialColorCategories}
+                    onAddCategory={handleAddDialColor}
+                    placeholder="Select dial color"
                     disabled={isSubmitting}
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="gender">Gender</Label>
+                  <GenderSelect
+                    value={formData.gender}
+                    onValueChange={(value) => handleInputChange('gender', value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+
                 <div>
                   <Label htmlFor="quantity">Quantity</Label>
                   <Input
                     id="quantity"
                     type="number"
+                    min="1"
+                    step="1"
                     value={formData.quantity}
-                    onChange={(e) => handleInputChange('quantity', parseFloat(e.target.value))}
+                    onChange={(e) => handleInputChange('quantity', parseInt(e.target.value))}
                     placeholder="0"
                     className="w-full"
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="price">Price</Label>
                   <Input
                     id="price"
                     type="number"
+                    min="0"
+                    step="0.01"
                     value={formData.price}
                     onChange={(e) => handleInputChange('price', parseFloat(e.target.value))}
                     placeholder="৳0.00"
@@ -348,6 +432,7 @@ const InventoryPage = () => {
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="total">Total</Label>
                   <Input
@@ -356,9 +441,9 @@ const InventoryPage = () => {
                     value={formData.total}
                     readOnly
                     className="w-full bg-muted"
-                    disabled
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="notes">Notes</Label>
                   <Input
@@ -366,12 +451,13 @@ const InventoryPage = () => {
                     type="text"
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
-                    placeholder="Enter notes"
+                    placeholder="Add notes..."
                     className="w-full"
                     disabled={isSubmitting}
                   />
                 </div>
               </div>
+
               <div className="flex justify-end">
                 <Button 
                   type="submit" 

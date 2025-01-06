@@ -10,11 +10,21 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getSales, addSale, type SaleEntry } from '@/utils/database';
+import { 
+  getSales, 
+  addSale, 
+  type SaleEntry,
+  getProductCategories,
+  getColorCategories,
+  getDialColorCategories,
+  type Category
+} from '@/utils/database';
 import { toast } from 'sonner';
 import { Loader2, ChevronRight } from "lucide-react";
 import dayjs from 'dayjs';
 import { cn } from "@/lib/utils";
+import CategorySelect from '@/components/form/CategorySelect';
+import GenderSelect from '@/components/form/GenderSelect';
 
 // Helper function to format date as DD-MMM-YYYY
 const formatDate = (date: Date | string): string => {
@@ -31,28 +41,40 @@ const SalesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [colorCategories, setColorCategories] = useState<Category[]>([]);
+  const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
+  
   const [newSale, setNewSale] = useState<Partial<SaleEntry>>({
     date: formatDate(new Date())
   });
 
   useEffect(() => {
-    loadSales();
+    loadData();
   }, []);
 
-  const loadSales = async () => {
+  const loadData = async () => {
     try {
       setIsLoading(true);
-      const data = await getSales();
-      setSales(data);
+      const [salesData, productCats, colorCats, dialColorCats] = await Promise.all([
+        getSales(),
+        getProductCategories(),
+        getColorCategories(),
+        getDialColorCategories()
+      ]);
+      setSales(salesData);
+      setProductCategories(productCats);
+      setColorCategories(colorCats);
+      setDialColorCategories(dialColorCats);
     } catch (error) {
-      console.error('Error loading sales:', error);
+      console.error('Error loading data:', error);
       toast.error('Failed to load sales data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setNewSale(prev => {
       const updated = { ...prev, [name]: value };
@@ -90,11 +112,14 @@ const SalesPage = () => {
         quantity: Number(newSale.quantity),
         price: Number(newSale.price),
         total: Number(newSale.quantity) * Number(newSale.price),
-        notes: newSale.notes || ''
+        notes: newSale.notes || '',
+        gender: newSale.gender || '',
+        color: newSale.color || '',
+        dialColor: newSale.dialColor || ''
       };
       
       await addSale(saleEntry);
-      await loadSales();
+      await loadData();
       setNewSale({ date: formatDate(new Date()) }); // Reset form
       toast.success('Sale entry added successfully');
     } catch (error) {
@@ -127,6 +152,9 @@ const SalesPage = () => {
                 <TableHead className="w-[120px]">Date</TableHead>
                 <TableHead className="w-[180px]">Product</TableHead>
                 <TableHead className="w-[120px]">Order Number</TableHead>
+                <TableHead className="w-[100px]">Gender</TableHead>
+                <TableHead className="w-[100px]">Color</TableHead>
+                <TableHead className="w-[100px]">Dial Color</TableHead>
                 <TableHead className="text-right w-[100px]">Quantity</TableHead>
                 <TableHead className="text-right w-[120px]">Price</TableHead>
                 <TableHead className="text-right w-[120px]">Total</TableHead>
@@ -136,7 +164,7 @@ const SalesPage = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading sales data...
@@ -145,7 +173,7 @@ const SalesPage = () => {
                 </TableRow>
               ) : sales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground">
                     No sales entries yet
                   </TableCell>
                 </TableRow>
@@ -155,6 +183,9 @@ const SalesPage = () => {
                     <TableCell>{sale.date}</TableCell>
                     <TableCell>{sale.product}</TableCell>
                     <TableCell>{sale.order_number}</TableCell>
+                    <TableCell>{sale.gender}</TableCell>
+                    <TableCell>{sale.color}</TableCell>
+                    <TableCell>{sale.dialColor}</TableCell>
                     <TableCell className="text-right">{sale.quantity}</TableCell>
                     <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
                     <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
@@ -201,18 +232,18 @@ const SalesPage = () => {
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="product">Product</Label>
-                  <Input
-                    id="product"
-                    name="product"
+                  <CategorySelect
                     value={newSale.product || ''}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Product name"
+                    onValueChange={(value) => setNewSale(prev => ({ ...prev, product: value }))}
+                    categories={productCategories}
+                    placeholder="Select product"
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="order_number">Order Number</Label>
                   <Input
@@ -225,13 +256,45 @@ const SalesPage = () => {
                     disabled={isSubmitting}
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="gender">Gender</Label>
+                  <GenderSelect
+                    value={newSale.gender || ''}
+                    onValueChange={(value) => setNewSale(prev => ({ ...prev, gender: value }))}
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="color">Color</Label>
+                  <CategorySelect
+                    value={newSale.color || ''}
+                    onValueChange={(value) => setNewSale(prev => ({ ...prev, color: value }))}
+                    categories={colorCategories}
+                    placeholder="Select color"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="dialColor">Dial Color</Label>
+                  <CategorySelect
+                    value={newSale.dialColor || ''}
+                    onValueChange={(value) => setNewSale(prev => ({ ...prev, dialColor: value }))}
+                    categories={dialColorCategories}
+                    placeholder="Select dial color"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
                 <div>
                   <Label htmlFor="quantity">Quantity</Label>
                   <Input
                     id="quantity"
                     name="quantity"
                     type="number"
-                    min="0"
+                    min="1"
                     step="1"
                     value={newSale.quantity || ''}
                     onChange={handleInputChange}
@@ -240,6 +303,7 @@ const SalesPage = () => {
                     disabled={isSubmitting}
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="price">Price</Label>
                   <Input
@@ -251,10 +315,23 @@ const SalesPage = () => {
                     value={newSale.price || ''}
                     onChange={handleInputChange}
                     required
-                    placeholder="0.00"
+                    placeholder="৳0.00"
                     disabled={isSubmitting}
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="total">Total</Label>
+                  <Input
+                    id="total"
+                    name="total"
+                    type="number"
+                    value={newSale.total || ''}
+                    readOnly
+                    className="w-full bg-muted"
+                  />
+                </div>
+
                 <div>
                   <Label htmlFor="notes">Notes</Label>
                   <Input
@@ -267,6 +344,7 @@ const SalesPage = () => {
                   />
                 </div>
               </div>
+
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (

@@ -11,6 +11,9 @@ export interface SaleEntry {
   price: number;
   total: number;
   notes?: string;
+  gender?: string;
+  color?: string;
+  dialColor?: string;
 }
 
 export interface PurchaseEntry {
@@ -66,6 +69,12 @@ export interface InventoryEntry {
   lastUpdated: Timestamp;
 }
 
+export interface Category {
+  id?: string;
+  name: string;
+  createdAt?: Date;
+}
+
 // Helper function to format date
 const formatDate = (date: Date): string => {
   return dayjs(date).format('DD-MMM-YYYY');
@@ -74,20 +83,27 @@ const formatDate = (date: Date): string => {
 // Sales functions
 export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
   try {
+    // Normalize the product name
+    const normalizedProduct = sale.product.trim();
+    
+    if (!normalizedProduct) {
+      throw new Error('Product name is required');
+    }
+
     // Check inventory before proceeding
     const inventoryRef = collection(db, 'inventory');
-    const q = query(inventoryRef, where('product', '==', sale.product));
+    const q = query(inventoryRef, where('product', '==', normalizedProduct));
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      throw new Error('Product not found in inventory');
+      throw new Error(`Product "${normalizedProduct}" not found in inventory`);
     }
 
     const inventoryDoc = querySnapshot.docs[0];
     const currentQuantity = inventoryDoc.data().quantity;
 
     if (currentQuantity < sale.quantity) {
-      throw new Error('Insufficient inventory');
+      throw new Error(`Insufficient inventory for "${normalizedProduct}". Available: ${currentQuantity}, Requested: ${sale.quantity}`);
     }
 
     // Start a batch write
@@ -97,12 +113,13 @@ export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
     const saleRef = doc(collection(db, 'sales'));
     batch.set(saleRef, {
       ...sale,
+      product: normalizedProduct,
       date: Timestamp.fromDate(dayjs(sale.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
     });
 
     // Update inventory
-    await updateInventory(sale.product, -sale.quantity);
+    await updateInventory(normalizedProduct, -sale.quantity);
 
     // Commit the batch
     await batch.commit();
@@ -140,6 +157,13 @@ export const getSales = async (): Promise<SaleEntry[]> => {
 // Purchases functions
 export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
   try {
+    // Normalize the product name
+    const normalizedProduct = purchase.product.trim();
+    
+    if (!normalizedProduct) {
+      throw new Error('Product name is required');
+    }
+
     // Start a batch write
     const batch = writeBatch(db);
 
@@ -147,12 +171,13 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
     const purchaseRef = doc(collection(db, 'purchases'));
     batch.set(purchaseRef, {
       ...purchase,
+      product: normalizedProduct,
       date: Timestamp.fromDate(dayjs(purchase.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
     });
 
     // Update inventory
-    await updateInventory(purchase.product, purchase.quantity);
+    await updateInventory(normalizedProduct, purchase.quantity);
 
     // Commit the batch
     await batch.commit();
@@ -344,20 +369,27 @@ export const getInvestments = async (): Promise<InvestmentEntry[]> => {
 // Inventory functions
 export const updateInventory = async (product: string, quantityChange: number): Promise<void> => {
   try {
+    // Normalize the product name
+    const normalizedProduct = product.trim();
+    
+    if (!normalizedProduct) {
+      throw new Error('Product name is required');
+    }
+
     const inventoryRef = collection(db, 'inventory');
-    const q = query(inventoryRef, where('product', '==', product));
+    const q = query(inventoryRef, where('product', '==', normalizedProduct));
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
       // If product doesn't exist in inventory and we're adding stock
       if (quantityChange > 0) {
         await addDoc(inventoryRef, {
-          product,
+          product: normalizedProduct,
           quantity: quantityChange,
           lastUpdated: Timestamp.now()
         });
       } else {
-        throw new Error('Product not found in inventory');
+        throw new Error(`Product "${normalizedProduct}" not found in inventory`);
       }
     } else {
       // Update existing inventory
@@ -366,7 +398,7 @@ export const updateInventory = async (product: string, quantityChange: number): 
       const newQuantity = currentQuantity + quantityChange;
 
       if (newQuantity < 0) {
-        throw new Error('Insufficient inventory');
+        throw new Error(`Insufficient inventory for "${normalizedProduct}". Current stock: ${currentQuantity}`);
       }
 
       await updateDoc(doc(db, 'inventory', inventoryDoc.id), {
@@ -392,6 +424,122 @@ export const getInventory = async (): Promise<InventoryEntry[]> => {
     }));
   } catch (error) {
     console.error('Error getting inventory:', error);
+    throw error;
+  }
+};
+
+// Product Categories functions
+export const addProductCategory = async (category: Omit<Category, 'id' | 'createdAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'productCategories'), {
+      ...category,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding product category:', error);
+    throw error;
+  }
+};
+
+export const getProductCategories = async (): Promise<Category[]> => {
+  try {
+    const q = query(collection(db, 'productCategories'), orderBy('name', 'asc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      createdAt: doc.data().createdAt?.toDate()
+    }));
+  } catch (error) {
+    console.error('Error getting product categories:', error);
+    throw error;
+  }
+};
+
+// Supplier Categories functions
+export const addSupplierCategory = async (category: Omit<Category, 'id' | 'createdAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'supplierCategories'), {
+      ...category,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding supplier category:', error);
+    throw error;
+  }
+};
+
+export const getSupplierCategories = async (): Promise<Category[]> => {
+  try {
+    const q = query(collection(db, 'supplierCategories'), orderBy('name', 'asc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      createdAt: doc.data().createdAt?.toDate()
+    }));
+  } catch (error) {
+    console.error('Error getting supplier categories:', error);
+    throw error;
+  }
+};
+
+// Color Categories functions
+export const addColorCategory = async (category: Omit<Category, 'id' | 'createdAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'colorCategories'), {
+      ...category,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding color category:', error);
+    throw error;
+  }
+};
+
+export const getColorCategories = async (): Promise<Category[]> => {
+  try {
+    const q = query(collection(db, 'colorCategories'), orderBy('name', 'asc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      createdAt: doc.data().createdAt?.toDate()
+    }));
+  } catch (error) {
+    console.error('Error getting color categories:', error);
+    throw error;
+  }
+};
+
+// Dial Color Categories functions
+export const addDialColorCategory = async (category: Omit<Category, 'id' | 'createdAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'dialColorCategories'), {
+      ...category,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding dial color category:', error);
+    throw error;
+  }
+};
+
+export const getDialColorCategories = async (): Promise<Category[]> => {
+  try {
+    const q = query(collection(db, 'dialColorCategories'), orderBy('name', 'asc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      createdAt: doc.data().createdAt?.toDate()
+    }));
+  } catch (error) {
+    console.error('Error getting dial color categories:', error);
     throw error;
   }
 }; 

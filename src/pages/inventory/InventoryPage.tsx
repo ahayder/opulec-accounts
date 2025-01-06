@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getInventory, type InventoryEntry, getPurchases, type PurchaseEntry, addPurchase } from '@/utils/database';
 import { Loader2, ChevronRight } from 'lucide-react';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,7 +30,6 @@ interface PurchaseFormData {
 }
 
 const InventoryPage = () => {
-  const { currentBusiness } = useBusiness();
   const [inventory, setInventory] = useState<InventoryEntry[]>([]);
   const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,19 +50,15 @@ const InventoryPage = () => {
   });
 
   useEffect(() => {
-    if (currentBusiness) {
-      loadData();
-    }
-  }, [currentBusiness]);
+    loadData();
+  }, []);
 
   const loadData = async () => {
-    if (!currentBusiness) return;
-    
     try {
       setIsLoading(true);
       const [inventoryData, purchasesData] = await Promise.all([
-        getInventory(currentBusiness.id),
-        getPurchases(currentBusiness.id)
+        getInventory(),
+        getPurchases()
       ]);
       setInventory(inventoryData);
       setPurchases(purchasesData);
@@ -93,10 +87,6 @@ const InventoryPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentBusiness) {
-      toast.error('Please select a business first');
-      return;
-    }
     
     if (!formData.product || !formData.quantity || !formData.price) {
       toast.error('Please fill in all required fields');
@@ -105,7 +95,7 @@ const InventoryPage = () => {
 
     setIsSubmitting(true);
     try {
-      await addPurchase(currentBusiness.id, formData);
+      await addPurchase(formData);
       await loadData();
       setFormData({
         date: new Date().toISOString().split('T')[0],

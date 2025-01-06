@@ -14,7 +14,6 @@ import { getSales, addSale, type SaleEntry } from '@/utils/database';
 import { toast } from 'sonner';
 import { Loader2, ChevronRight } from "lucide-react";
 import dayjs from 'dayjs';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { cn } from "@/lib/utils";
 
 // Helper function to format date as DD-MMM-YYYY
@@ -28,7 +27,6 @@ const dateToInputValue = (date: Date | string): string => {
 };
 
 const SalesPage = () => {
-  const { currentBusiness } = useBusiness();
   const [sales, setSales] = useState<SaleEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,17 +36,13 @@ const SalesPage = () => {
   });
 
   useEffect(() => {
-    if (currentBusiness) {
-      loadSales();
-    }
-  }, [currentBusiness]);
+    loadSales();
+  }, []);
 
   const loadSales = async () => {
-    if (!currentBusiness) return;
-    
     try {
       setIsLoading(true);
-      const data = await getSales(currentBusiness.id);
+      const data = await getSales();
       setSales(data);
     } catch (error) {
       console.error('Error loading sales:', error);
@@ -81,10 +75,6 @@ const SalesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentBusiness) {
-      toast.error('Please select a business first');
-      return;
-    }
     
     if (!newSale.product || !newSale.order_number || !newSale.quantity || !newSale.price) {
       toast.error('Please fill in all required fields');
@@ -103,7 +93,7 @@ const SalesPage = () => {
         notes: newSale.notes || ''
       };
       
-      await addSale(currentBusiness.id, saleEntry);
+      await addSale(saleEntry);
       await loadSales();
       setNewSale({ date: formatDate(new Date()) }); // Reset form
       toast.success('Sale entry added successfully');

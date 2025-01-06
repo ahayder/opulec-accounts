@@ -7,7 +7,6 @@ import { Loader2, Plus, ChevronRight } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
-import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import {
@@ -28,7 +27,6 @@ interface ExpenseFormData {
 }
 
 const ExpensesPage = () => {
-  const { currentBusiness } = useBusiness();
   const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,18 +44,14 @@ const ExpensesPage = () => {
   });
 
   useEffect(() => {
-    if (currentBusiness) {
-      loadExpenses();
-    }
+    loadExpenses();
     loadCategories();
-  }, [currentBusiness]);
+  }, []);
 
   const loadExpenses = async () => {
-    if (!currentBusiness) return;
-    
     try {
       setIsLoading(true);
-      const data = await getExpenses(currentBusiness.id);
+      const data = await getExpenses();
       setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
@@ -102,14 +96,9 @@ const ExpensesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentBusiness) {
-      toast.error('Please select a business first');
-      return;
-    }
-    
     setIsSubmitting(true);
     try {
-      await addExpense(currentBusiness.id, formData);
+      await addExpense(formData);
       await loadExpenses();
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -180,7 +169,7 @@ const ExpensesPage = () => {
               ) : (
                 expenses.map((expense) => (
                   <TableRow key={expense.id}>
-                    <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{expense.date}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell className="text-right">৳{expense.amount.toFixed(2)}</TableCell>

@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addAsset, getAssets, type AssetEntry as DBAssetEntry } from '@/utils/database';
+import { addAsset, getAssets, type AssetEntry } from '@/utils/database';
 import { Loader2, ChevronRight } from 'lucide-react';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import {
@@ -16,39 +15,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface AssetFormData {
-  name: string;
-  purchaseDate: string;
-  cost: number;
-  usefulLife: number;
-}
-
 const AssetsPage = () => {
-  const { currentBusiness } = useBusiness();
-  const [assets, setAssets] = useState<DBAssetEntry[]>([]);
+  const [assets, setAssets] = useState<AssetEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  const [formData, setFormData] = useState<AssetFormData>({
+  const [formData, setFormData] = useState<Omit<AssetEntry, 'id'>>({
     name: '',
     purchaseDate: new Date().toISOString().split('T')[0],
     cost: 0,
-    usefulLife: 1
+    usefulLife: 0
   });
 
   useEffect(() => {
-    if (currentBusiness) {
-      loadAssetsAndUpdateDepreciation();
-    }
-  }, [currentBusiness]);
+    loadAssets();
+  }, []);
 
-  const loadAssetsAndUpdateDepreciation = async () => {
-    if (!currentBusiness) return;
-    
+  const loadAssets = async () => {
     try {
       setIsLoading(true);
-      const data = await getAssets(currentBusiness.id);
+      const data = await getAssets();
       setAssets(data);
     } catch (error) {
       console.error('Error loading assets:', error);
@@ -58,7 +45,7 @@ const AssetsPage = () => {
     }
   };
 
-  const handleInputChange = (name: keyof AssetFormData, value: string | number) => {
+  const handleInputChange = (name: keyof Omit<AssetEntry, 'id'>, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -67,20 +54,15 @@ const AssetsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentBusiness) {
-      toast.error('Please select a business first');
-      return;
-    }
-    
     setIsSubmitting(true);
     try {
-      await addAsset(currentBusiness.id, formData);
-      await loadAssetsAndUpdateDepreciation();
+      await addAsset(formData);
+      await loadAssets();
       setFormData({
         name: '',
         purchaseDate: new Date().toISOString().split('T')[0],
         cost: 0,
-        usefulLife: 1
+        usefulLife: 0
       });
       toast.success('Asset added successfully');
     } catch (error) {

@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addInvestment, getInvestments, type InvestmentEntry as DBInvestmentEntry } from '@/utils/database';
+import { addInvestment, getInvestments, type InvestmentEntry } from '@/utils/database';
 import { Loader2, ChevronRight } from 'lucide-react';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import {
@@ -16,21 +15,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface InvestmentFormData {
-  date: string;
-  investor: string;
-  amount: number;
-  note: string;
-}
-
 const InvestmentsPage = () => {
-  const { currentBusiness } = useBusiness();
-  const [investments, setInvestments] = useState<DBInvestmentEntry[]>([]);
+  const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  const [formData, setFormData] = useState<InvestmentFormData>({
+  const [formData, setFormData] = useState<Omit<InvestmentEntry, 'id'>>({
     date: new Date().toISOString().split('T')[0],
     investor: '',
     amount: 0,
@@ -38,17 +29,13 @@ const InvestmentsPage = () => {
   });
 
   useEffect(() => {
-    if (currentBusiness) {
-      loadInvestments();
-    }
-  }, [currentBusiness]);
+    loadInvestments();
+  }, []);
 
   const loadInvestments = async () => {
-    if (!currentBusiness) return;
-    
     try {
       setIsLoading(true);
-      const data = await getInvestments(currentBusiness.id);
+      const data = await getInvestments();
       setInvestments(data);
     } catch (error) {
       console.error('Error loading investments:', error);
@@ -58,7 +45,7 @@ const InvestmentsPage = () => {
     }
   };
 
-  const handleInputChange = (name: keyof InvestmentFormData, value: string | number) => {
+  const handleInputChange = (name: keyof Omit<InvestmentEntry, 'id'>, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -67,14 +54,9 @@ const InvestmentsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentBusiness) {
-      toast.error('Please select a business first');
-      return;
-    }
-    
     setIsSubmitting(true);
     try {
-      await addInvestment(currentBusiness.id, formData);
+      await addInvestment(formData);
       await loadInvestments();
       setFormData({
         date: new Date().toISOString().split('T')[0],

@@ -72,10 +72,10 @@ const formatDate = (date: Date): string => {
 };
 
 // Sales functions
-export const addSale = async (businessId: string, sale: Omit<SaleEntry, 'id'>) => {
+export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
   try {
     // Check inventory before proceeding
-    const inventoryRef = collection(db, `businesses/${businessId}/inventory`);
+    const inventoryRef = collection(db, 'inventory');
     const q = query(inventoryRef, where('product', '==', sale.product));
     const querySnapshot = await getDocs(q);
 
@@ -94,7 +94,7 @@ export const addSale = async (businessId: string, sale: Omit<SaleEntry, 'id'>) =
     const batch = writeBatch(db);
 
     // Add the sale document
-    const saleRef = doc(collection(db, `businesses/${businessId}/sales`));
+    const saleRef = doc(collection(db, 'sales'));
     batch.set(saleRef, {
       ...sale,
       date: Timestamp.fromDate(dayjs(sale.date, 'DD-MMM-YYYY').toDate()),
@@ -102,7 +102,7 @@ export const addSale = async (businessId: string, sale: Omit<SaleEntry, 'id'>) =
     });
 
     // Update inventory
-    await updateInventory(businessId, sale.product, -sale.quantity);
+    await updateInventory(sale.product, -sale.quantity);
 
     // Commit the batch
     await batch.commit();
@@ -113,9 +113,9 @@ export const addSale = async (businessId: string, sale: Omit<SaleEntry, 'id'>) =
   }
 };
 
-export const getSales = async (businessId: string): Promise<SaleEntry[]> => {
+export const getSales = async (): Promise<SaleEntry[]> => {
   try {
-    const q = query(collection(db, `businesses/${businessId}/sales`), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -138,13 +138,13 @@ export const getSales = async (businessId: string): Promise<SaleEntry[]> => {
 };
 
 // Purchases functions
-export const addPurchase = async (businessId: string, purchase: Omit<PurchaseEntry, 'id'>) => {
+export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
   try {
     // Start a batch write
     const batch = writeBatch(db);
 
     // Add the purchase document
-    const purchaseRef = doc(collection(db, `businesses/${businessId}/purchases`));
+    const purchaseRef = doc(collection(db, 'purchases'));
     batch.set(purchaseRef, {
       ...purchase,
       date: Timestamp.fromDate(dayjs(purchase.date, 'DD-MMM-YYYY').toDate()),
@@ -152,7 +152,7 @@ export const addPurchase = async (businessId: string, purchase: Omit<PurchaseEnt
     });
 
     // Update inventory
-    await updateInventory(businessId, purchase.product, purchase.quantity);
+    await updateInventory(purchase.product, purchase.quantity);
 
     // Commit the batch
     await batch.commit();
@@ -163,9 +163,9 @@ export const addPurchase = async (businessId: string, purchase: Omit<PurchaseEnt
   }
 };
 
-export const getPurchases = async (businessId: string): Promise<PurchaseEntry[]> => {
+export const getPurchases = async (): Promise<PurchaseEntry[]> => {
   try {
-    const q = query(collection(db, `businesses/${businessId}/purchases`), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'purchases'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -177,7 +177,11 @@ export const getPurchases = async (businessId: string): Promise<PurchaseEntry[]>
         quantity: data.quantity,
         price: data.price,
         total: data.total,
-        notes: data.notes
+        notes: data.notes,
+        supplier: data.supplier,
+        gender: data.gender,
+        color: data.color,
+        dialColor: data.dialColor
       } as PurchaseEntry;
     });
   } catch (error) {
@@ -187,9 +191,9 @@ export const getPurchases = async (businessId: string): Promise<PurchaseEntry[]>
 };
 
 // Expenses functions
-export const addExpense = async (businessId: string, expense: Omit<ExpenseEntry, 'id'>) => {
+export const addExpense = async (expense: Omit<ExpenseEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, `businesses/${businessId}/expenses`), {
+    const docRef = await addDoc(collection(db, 'expenses'), {
       ...expense,
       date: Timestamp.fromDate(dayjs(expense.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
@@ -201,9 +205,9 @@ export const addExpense = async (businessId: string, expense: Omit<ExpenseEntry,
   }
 };
 
-export const getExpenses = async (businessId: string): Promise<ExpenseEntry[]> => {
+export const getExpenses = async (): Promise<ExpenseEntry[]> => {
   try {
-    const q = query(collection(db, `businesses/${businessId}/expenses`), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -253,9 +257,9 @@ export const getExpenseCategories = async (): Promise<ExpenseCategory[]> => {
 };
 
 // Assets functions
-export const addAsset = async (businessId: string, asset: Omit<AssetEntry, 'id'>) => {
+export const addAsset = async (asset: Omit<AssetEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, `businesses/${businessId}/assets`), {
+    const docRef = await addDoc(collection(db, 'assets'), {
       ...asset,
       purchaseDate: Timestamp.fromDate(dayjs(asset.purchaseDate, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
@@ -267,9 +271,9 @@ export const addAsset = async (businessId: string, asset: Omit<AssetEntry, 'id'>
   }
 };
 
-export const getAssets = async (businessId: string): Promise<AssetEntry[]> => {
+export const getAssets = async (): Promise<AssetEntry[]> => {
   try {
-    const q = query(collection(db, `businesses/${businessId}/assets`), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'assets'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -289,9 +293,9 @@ export const getAssets = async (businessId: string): Promise<AssetEntry[]> => {
   }
 };
 
-export const updateAssetDepreciation = async (businessId: string, assetId: string): Promise<void> => {
+export const updateAssetDepreciation = async (assetId: string): Promise<void> => {
   try {
-    const docRef = doc(db, `businesses/${businessId}/assets`, assetId);
+    const docRef = doc(db, 'assets', assetId);
     await updateDoc(docRef, {
       lastUpdated: Timestamp.now()
     });
@@ -302,9 +306,9 @@ export const updateAssetDepreciation = async (businessId: string, assetId: strin
 };
 
 // Investments functions
-export const addInvestment = async (businessId: string, investment: Omit<InvestmentEntry, 'id'>) => {
+export const addInvestment = async (investment: Omit<InvestmentEntry, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, `businesses/${businessId}/investments`), {
+    const docRef = await addDoc(collection(db, 'investments'), {
       ...investment,
       date: Timestamp.fromDate(dayjs(investment.date, 'DD-MMM-YYYY').toDate()),
       createdAt: Timestamp.now()
@@ -316,9 +320,9 @@ export const addInvestment = async (businessId: string, investment: Omit<Investm
   }
 };
 
-export const getInvestments = async (businessId: string): Promise<InvestmentEntry[]> => {
+export const getInvestments = async (): Promise<InvestmentEntry[]> => {
   try {
-    const q = query(collection(db, `businesses/${businessId}/investments`), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'investments'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -338,9 +342,9 @@ export const getInvestments = async (businessId: string): Promise<InvestmentEntr
 };
 
 // Inventory functions
-export const updateInventory = async (businessId: string, product: string, quantityChange: number): Promise<void> => {
+export const updateInventory = async (product: string, quantityChange: number): Promise<void> => {
   try {
-    const inventoryRef = collection(db, `businesses/${businessId}/inventory`);
+    const inventoryRef = collection(db, 'inventory');
     const q = query(inventoryRef, where('product', '==', product));
     const querySnapshot = await getDocs(q);
 
@@ -365,7 +369,7 @@ export const updateInventory = async (businessId: string, product: string, quant
         throw new Error('Insufficient inventory');
       }
 
-      await updateDoc(doc(db, `businesses/${businessId}/inventory`, inventoryDoc.id), {
+      await updateDoc(doc(db, 'inventory', inventoryDoc.id), {
         quantity: newQuantity,
         lastUpdated: Timestamp.now()
       });
@@ -376,9 +380,9 @@ export const updateInventory = async (businessId: string, product: string, quant
   }
 };
 
-export const getInventory = async (businessId: string): Promise<InventoryEntry[]> => {
+export const getInventory = async (): Promise<InventoryEntry[]> => {
   try {
-    const q = query(collection(db, `businesses/${businessId}/inventory`), orderBy('product', 'asc'));
+    const q = query(collection(db, 'inventory'), orderBy('product', 'asc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,

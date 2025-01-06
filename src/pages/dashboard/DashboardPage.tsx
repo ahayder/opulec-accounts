@@ -1,430 +1,190 @@
 import React, { useState, useEffect } from 'react';
 import { getSales, getPurchases, getExpenses, getInvestments, getAssets } from '@/utils/database';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpIcon, ArrowDownIcon, CalendarIcon } from '@radix-ui/react-icons';
-import { useBusiness } from '@/contexts/BusinessContext';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import dayjs from 'dayjs';
 
 interface DashboardMetrics {
-  // Time-based metrics
   totalSales: number;
-  totalCOGS: number;
-  grossProfit: number;
-  totalOperatingExpenses: number;
-  netProfit: number;
-  
-  // Portfolio metrics
+  totalPurchases: number;
+  totalExpenses: number;
   totalInvestments: number;
-  investorCount: number;
-  totalAssetValue: number;
-  totalDepreciation: number;
-  netAssetValue: number;
+  totalAssets: number;
+  netIncome: number;
 }
 
+interface MetricCardProps {
+  title: string;
+  value: number;
+  type: 'currency';
+  className?: string;
+  valueClassName?: string;
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, type, className, valueClassName }) => (
+  <div className={cn("p-4 border rounded-lg", className)}>
+    <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+    <p className={cn("text-2xl font-bold mt-2", valueClassName)}>
+      {type === 'currency' ? `৳${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : value}
+    </p>
+  </div>
+);
+
 const DashboardPage = () => {
-  const { currentBusiness, isLoading: isBusinessLoading } = useBusiness();
-  const [startDate, setStartDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+  const [isLoading, setIsLoading] = useState(true);
+  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
   const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics>({
-    // Time-based metrics
     totalSales: 0,
-    totalCOGS: 0,
-    grossProfit: 0,
-    totalOperatingExpenses: 0,
-    netProfit: 0,
-    
-    // Portfolio metrics
+    totalPurchases: 0,
+    totalExpenses: 0,
     totalInvestments: 0,
-    investorCount: 0,
-    totalAssetValue: 0,
-    totalDepreciation: 0,
-    netAssetValue: 0
+    totalAssets: 0,
+    netIncome: 0
   });
 
-  const calculateMetrics = async () => {
-    if (!currentBusiness) return;
+  useEffect(() => {
+    loadDashboardData();
+  }, [startDate, endDate]);
 
-    setIsCalculating(true);
-    setError(null);
-
+  const loadDashboardData = async () => {
     try {
-      // Fetch all data
+      setIsLoading(true);
       const [sales, purchases, expenses, investments, assets] = await Promise.all([
-        getSales(currentBusiness.id),
-        getPurchases(currentBusiness.id),
-        getExpenses(currentBusiness.id),
-        getInvestments(currentBusiness.id),
-        getAssets(currentBusiness.id)
+        getSales(),
+        getPurchases(),
+        getExpenses(),
+        getInvestments(),
+        getAssets()
       ]);
 
-      // Calculate time-based metrics
-      const filteredSales = (sales || []).filter(sale => {
-        const saleDate = dayjs(sale.date);
-        return saleDate.isAfter(dayjs(startDate)) && saleDate.isBefore(dayjs(endDate).add(1, 'day'));
+      // Filter data based on date range
+      const start = dayjs(startDate).startOf('day');
+      const end = dayjs(endDate).endOf('day');
+
+      const filteredSales = sales.filter(sale => {
+        const saleDate = dayjs(sale.date, 'DD-MMM-YYYY');
+        return saleDate.isAfter(start) && saleDate.isBefore(end);
       });
 
-      const filteredPurchases = (purchases || []).filter(purchase => {
-        const purchaseDate = dayjs(purchase.date);
-        return purchaseDate.isAfter(dayjs(startDate)) && purchaseDate.isBefore(dayjs(endDate).add(1, 'day'));
+      const filteredPurchases = purchases.filter(purchase => {
+        const purchaseDate = dayjs(purchase.date, 'DD-MMM-YYYY');
+        return purchaseDate.isAfter(start) && purchaseDate.isBefore(end);
       });
 
-      const filteredExpenses = (expenses || []).filter(expense => {
-        const expenseDate = dayjs(expense.date);
-        return expenseDate.isAfter(dayjs(startDate)) && expenseDate.isBefore(dayjs(endDate).add(1, 'day'));
+      const filteredExpenses = expenses.filter(expense => {
+        const expenseDate = dayjs(expense.date, 'DD-MMM-YYYY');
+        return expenseDate.isAfter(start) && expenseDate.isBefore(end);
       });
 
-      const totalSales = Number(filteredSales.reduce((sum, sale) => sum + (Number(sale.total) || 0), 0)) || 0;
-      const totalCOGS = Number(filteredPurchases.reduce((sum, purchase) => sum + (Number(purchase.total) || 0), 0)) || 0;
-      const grossProfit = totalSales - totalCOGS;
-      const totalOperatingExpenses = Number(filteredExpenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0)) || 0;
-      const netProfit = grossProfit - totalOperatingExpenses;
-
-      // Calculate portfolio metrics
-      const totalInvestments = Number((investments || []).reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0)) || 0;
-      const uniqueInvestors = new Set((investments || []).map(inv => inv.investor)).size;
-
-      // Calculate asset metrics
-      const now = dayjs();
-      let totalAssetValue = 0;
-      let totalDepreciation = 0;
-
-      (assets || []).forEach(asset => {
-        const cost = Number(asset.cost) || 0;
-        totalAssetValue += cost;
-        
-        // Calculate depreciation
-        const purchaseDate = dayjs(asset.purchaseDate);
-        const ageInYears = now.diff(purchaseDate, 'year', true);
-        const yearlyDepreciation = cost / asset.usefulLife;
-        const currentDepreciation = Math.min(cost, yearlyDepreciation * ageInYears);
-        
-        totalDepreciation += currentDepreciation;
+      const filteredInvestments = investments.filter(investment => {
+        const investmentDate = dayjs(investment.date, 'DD-MMM-YYYY');
+        return investmentDate.isAfter(start) && investmentDate.isBefore(end);
       });
 
-      const netAssetValue = totalAssetValue - totalDepreciation;
+      // Calculate totals
+      const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
+      const totalPurchases = filteredPurchases.reduce((sum, purchase) => sum + purchase.total, 0);
+      const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+      const totalInvestments = filteredInvestments.reduce((sum, investment) => sum + investment.amount, 0);
+      const totalAssets = assets.reduce((sum, asset) => sum + asset.cost, 0);
 
       setMetrics({
-        // Time-based metrics
         totalSales,
-        totalCOGS,
-        grossProfit,
-        totalOperatingExpenses,
-        netProfit,
-        
-        // Portfolio metrics
+        totalPurchases,
+        totalExpenses,
         totalInvestments,
-        investorCount: uniqueInvestors,
-        totalAssetValue,
-        totalDepreciation,
-        netAssetValue
+        totalAssets,
+        netIncome: totalSales - totalPurchases - totalExpenses
       });
     } catch (error) {
-      console.error('Error calculating metrics:', error);
-      setError('Failed to load dashboard metrics. Please try again.');
-      setMetrics({
-        totalSales: 0,
-        totalCOGS: 0,
-        grossProfit: 0,
-        totalOperatingExpenses: 0,
-        netProfit: 0,
-        totalInvestments: 0,
-        investorCount: 0,
-        totalAssetValue: 0,
-        totalDepreciation: 0,
-        netAssetValue: 0
-      });
+      console.error('Error loading dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
-      setIsCalculating(false);
+      setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (!isBusinessLoading) {
-      calculateMetrics();
-    }
-  }, [startDate, endDate, currentBusiness, isBusinessLoading]);
-
-  const handleDateRangeClick = (range: 'week' | 'month' | '3months') => {
-    const end = dayjs();
-    let start;
-
-    switch (range) {
-      case 'week':
-        start = end.subtract(7, 'day');
-        break;
-      case 'month':
-        start = end.subtract(1, 'month');
-        break;
-      case '3months':
-        start = end.subtract(3, 'month');
-        break;
-    }
-
-    setStartDate(start.format('YYYY-MM-DD'));
-    setEndDate(end.format('YYYY-MM-DD'));
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start">
+    <div className="p-4 md:p-8 pt-6">
+      <div className="flex justify-between items-center border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            {currentBusiness 
-              ? `Track ${currentBusiness.name}'s performance and financial metrics` 
-              : 'Select a business to view metrics'}
+            Track your business performance and financial metrics
           </p>
-          {error && (
-            <p className="text-sm text-red-500 mt-1">{error}</p>
-          )}
         </div>
-
-        <Card className="w-fit">
-          <CardContent className="py-3">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-36"
-                  />
-                  <span className="text-muted-foreground">to</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-36"
-                  />
-                </div>
-              </div>
-              <Separator orientation="vertical" className="h-8" />
-              <Tabs defaultValue="7d" className="w-fit">
-                <TabsList>
-                  <TabsTrigger value="7d" onClick={() => handleDateRangeClick('week')}>7D</TabsTrigger>
-                  <TabsTrigger value="1m" onClick={() => handleDateRangeClick('month')}>1M</TabsTrigger>
-                  <TabsTrigger value="3m" onClick={() => handleDateRangeClick('3months')}>3M</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {isBusinessLoading || isCalculating ? (
-        <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      ) : !currentBusiness ? (
-        <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
-          <p className="text-muted-foreground">Please select or create a business to view metrics</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Performance Metrics */}
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Performance Metrics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">
-                    Total Sales
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-xl font-bold">
-                      ৳{metrics.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">
-                    Total COGS
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-xl font-bold">
-                      ৳{metrics.totalCOGS.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <ArrowDownIcon className="h-3 w-3 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">
-                    Gross Profit
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className={`text-xl font-bold ${metrics.grossProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ৳{metrics.grossProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    {metrics.grossProfit >= 0 ? (
-                      <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <ArrowDownIcon className="h-3 w-3 text-red-500" />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">
-                    Operating Expenses
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-xl font-bold">
-                      ৳{metrics.totalOperatingExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <ArrowDownIcon className="h-3 w-3 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm md:col-span-2 lg:col-span-1">
-                <CardHeader className="pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">
-                    Net Profit
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className={`text-xl font-bold ${metrics.netProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ৳{metrics.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    {metrics.netProfit >= 0 ? (
-                      <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <ArrowDownIcon className="h-3 w-3 text-red-500" />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+      <div className="flex flex-col gap-4 mt-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <Label htmlFor="startDate">Start Date</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
           </div>
-
-          {/* Portfolio Overview */}
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Portfolio Overview</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Investment Summary */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-3">Investment Summary</h3>
-                <div className="space-y-3">
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2 space-y-0">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">
-                        Total Investments
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-xl font-bold">
-                          ৳{metrics.totalInvestments.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </div>
-                        <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2 space-y-0">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">
-                        Number of Investors
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-xl font-bold">
-                          {metrics.investorCount}
-                        </div>
-                        <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Asset Summary */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-3">Asset Summary</h3>
-                <div className="space-y-3">
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2 space-y-0">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">
-                        Total Asset Value
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-xl font-bold">
-                          ৳{metrics.totalAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </div>
-                        <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2 space-y-0">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">
-                        Total Depreciation
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-xl font-bold">
-                          ৳{metrics.totalDepreciation.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </div>
-                        <ArrowDownIcon className="h-3 w-3 text-red-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2 space-y-0">
-                      <CardTitle className="text-xs font-medium text-muted-foreground">
-                        Net Asset Value
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className={`text-xl font-bold ${metrics.netAssetValue < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          ৳{metrics.netAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </div>
-                        {metrics.netAssetValue >= 0 ? (
-                          <ArrowUpIcon className="h-3 w-3 text-green-500" />
-                        ) : (
-                          <ArrowDownIcon className="h-3 w-3 text-red-500" />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
+          <div className="flex-1">
+            <Label htmlFor="endDate">End Date</Label>
+            <Input
+              id="endDate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
           </div>
         </div>
-      )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <MetricCard
+              title="Total Sales"
+              value={metrics.totalSales}
+              type="currency"
+            />
+            <MetricCard
+              title="Total Purchases"
+              value={metrics.totalPurchases}
+              type="currency"
+            />
+            <MetricCard
+              title="Total Expenses"
+              value={metrics.totalExpenses}
+              type="currency"
+            />
+            <MetricCard
+              title="Total Investments"
+              value={metrics.totalInvestments}
+              type="currency"
+            />
+            <MetricCard
+              title="Total Assets"
+              value={metrics.totalAssets}
+              type="currency"
+            />
+            <MetricCard
+              title="Net Income"
+              value={metrics.netIncome}
+              type="currency"
+              className={cn(
+                metrics.netIncome >= 0 ? "bg-green-50" : "bg-red-50",
+                "dark:bg-transparent"
+              )}
+              valueClassName={metrics.netIncome >= 0 ? "text-green-600" : "text-red-600"}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

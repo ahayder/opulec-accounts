@@ -3,6 +3,7 @@ import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/main';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 interface AuthContextType {
   user: User | null;
@@ -51,9 +52,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout
   };
 
+  if (loading) {
+    return (
+      <AuthContext.Provider value={value}>
+        <div className="h-screen w-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </AuthContext.Provider>
+    );
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

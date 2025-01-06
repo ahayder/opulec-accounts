@@ -12,18 +12,17 @@ import {
   LayersIcon,
   RocketIcon
 } from '@radix-ui/react-icons';
-import BusinessSelector from './BusinessSelector';
 
 const Sidebar = () => {
   const { logout } = useAuth();
 
   return (
-    <div className="h-screen w-64 border-r bg-background flex flex-col">
-      <div className="h-16 border-b flex items-center px-6">
+    <div className="h-screen w-64 border-r bg-background flex flex-col flex-shrink-0">
+      <div className="h-16 border-b flex items-center justify-center px-6">
         <h1 className="text-xl font-bold">Opulec Accounts</h1>
       </div>
       
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <NavLink 
           to="/dashboard" 
           className={({ isActive }) => 
@@ -123,8 +122,7 @@ const Sidebar = () => {
         </NavLink>
       </nav>
 
-      <div className="border-t p-3 space-y-2">
-        <BusinessSelector />
+      <div className="border-t p-3 flex-shrink-0">
         <Button 
           variant="ghost" 
           className="w-full justify-start gap-3" 

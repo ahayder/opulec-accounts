@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where, getDoc } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -543,6 +543,35 @@ export const getDialColorCategories = async (): Promise<Category[]> => {
     }));
   } catch (error) {
     console.error('Error getting dial color categories:', error);
+    throw error;
+  }
+};
+
+export const deleteSale = async (saleId: string): Promise<void> => {
+  try {
+    // Get the sale data first to update inventory
+    const saleRef = doc(db, 'sales', saleId);
+    const saleDoc = await getDoc(saleRef);
+    
+    if (!saleDoc.exists()) {
+      throw new Error('Sale not found');
+    }
+
+    const saleData = saleDoc.data();
+    
+    // Start a batch write
+    const batch = writeBatch(db);
+
+    // Delete the sale document
+    batch.delete(saleRef);
+
+    // Update inventory (add back the quantity)
+    await updateInventory(saleData.product, saleData.quantity);
+
+    // Commit the batch
+    await batch.commit();
+  } catch (error) {
+    console.error('Error deleting sale:', error);
     throw error;
   }
 }; 

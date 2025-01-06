@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
   getSales, 
-  addSale, 
+  addSale,
+  deleteSale,
   type SaleEntry,
   getProductCategories,
   getColorCategories,
@@ -20,11 +21,21 @@ import {
   type Category
 } from '@/utils/database';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight } from "lucide-react";
+import { Loader2, ChevronRight, Trash2 } from "lucide-react";
 import dayjs from 'dayjs';
 import { cn } from "@/lib/utils";
 import CategorySelect from '@/components/form/CategorySelect';
 import GenderSelect from '@/components/form/GenderSelect';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Helper function to format date as DD-MMM-YYYY
 const formatDate = (date: Date | string): string => {
@@ -44,6 +55,7 @@ const SalesPage = () => {
   const [productCategories, setProductCategories] = useState<Category[]>([]);
   const [colorCategories, setColorCategories] = useState<Category[]>([]);
   const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
+  const [saleToDelete, setSaleToDelete] = useState<SaleEntry | null>(null);
   
   const [newSale, setNewSale] = useState<Partial<SaleEntry>>({
     date: formatDate(new Date())
@@ -130,6 +142,21 @@ const SalesPage = () => {
     }
   };
 
+  const handleDelete = async (sale: SaleEntry) => {
+    if (!sale.id) return;
+    
+    try {
+      await deleteSale(sale.id);
+      await loadData();
+      toast.success('Sale entry deleted successfully');
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      toast.error('Failed to delete sale entry');
+    } finally {
+      setSaleToDelete(null);
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -159,12 +186,13 @@ const SalesPage = () => {
                 <TableHead className="text-right w-[120px]">Price</TableHead>
                 <TableHead className="text-right w-[120px]">Total</TableHead>
                 <TableHead className="w-[200px]">Notes</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={11} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading sales data...
@@ -173,7 +201,7 @@ const SalesPage = () => {
                 </TableRow>
               ) : sales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground">
                     No sales entries yet
                   </TableCell>
                 </TableRow>
@@ -190,6 +218,16 @@ const SalesPage = () => {
                     <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
                     <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
                     <TableCell>{sale.notes}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSaleToDelete(sale)}
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -361,6 +399,30 @@ const SalesPage = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog 
+        open={saleToDelete !== null} 
+        onOpenChange={(open) => !open && setSaleToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this sale entry and update the inventory accordingly.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => saleToDelete && handleDelete(saleToDelete)}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

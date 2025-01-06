@@ -3,12 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory } from '@/utils/database';
-import { Loader2, Plus, ChevronRight } from 'lucide-react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
+import { Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+import CategorySelect from '@/components/form/CategorySelect';
 import {
   Table,
   TableBody,
@@ -32,8 +30,6 @@ const ExpensesPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
   
   const [formData, setFormData] = useState<ExpenseFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -84,7 +80,6 @@ const ExpensesPage = () => {
     try {
       await addExpenseCategory({ name: categoryName.trim() });
       await loadCategories();
-      setNewCategory('');
       handleInputChange('category', categoryName.trim());
     } catch (error) {
       console.error('Error adding category:', error);
@@ -113,14 +108,6 @@ const ExpensesPage = () => {
       toast.error('Failed to add expense');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' && newCategory) {
-      e.preventDefault();
-      handleAddCategory(newCategory);
-      setOpen(false);
     }
   };
 
@@ -217,64 +204,14 @@ const ExpensesPage = () => {
                 </div>
                 <div>
                   <Label htmlFor="category">Category</Label>
-                  <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={open}
-                        className="w-full justify-between"
-                        disabled={isSubmitting}
-                      >
-                        {formData.category
-                          ? categories.find((category) => category.name === formData.category)?.name
-                          : "Select category..."}
-                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
-                      <Command shouldFilter={false}>
-                        <CommandInput 
-                          placeholder="Search or add category..." 
-                          value={newCategory}
-                          onValueChange={setNewCategory}
-                          onKeyDown={handleKeyDown}
-                        />
-                        <CommandList>
-                          <CommandEmpty className="py-6 text-center text-sm">
-                            {newCategory && (
-                              <div className="flex items-center justify-center gap-2 text-sm">
-                                <Plus className="h-4 w-4" />
-                                <span>Press Enter to add "{newCategory}"</span>
-                              </div>
-                            )}
-                            {!newCategory && "No categories found"}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {categories
-                              .filter(category => 
-                                category.name.toLowerCase().includes(newCategory.toLowerCase())
-                              )
-                              .map((category) => (
-                                <CommandItem
-                                  key={category.id}
-                                  onSelect={() => {
-                                    handleInputChange('category', category.name);
-                                    setOpen(false);
-                                  }}
-                                  className="flex items-center justify-between"
-                                >
-                                  <span>{category.name}</span>
-                                  {formData.category === category.name && (
-                                    <CheckIcon className="ml-2 h-4 w-4" />
-                                  )}
-                                </CommandItem>
-                              ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <CategorySelect
+                    value={formData.category}
+                    onValueChange={(value) => handleInputChange('category', value)}
+                    categories={categories}
+                    onAddCategory={handleAddCategory}
+                    placeholder="Select category"
+                    disabled={isSubmitting}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="description">Description</Label>

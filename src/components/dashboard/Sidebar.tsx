@@ -25,7 +25,7 @@ const Sidebar = () => {
       
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <NavLink 
-          to="/dashboard" 
+          to="/" 
           className={({ isActive }) => 
             `flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
               isActive 

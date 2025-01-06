@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory } from '@/utils/database';
-import { Loader2, ChevronRight } from 'lucide-react';
+import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory, deleteExpense } from '@/utils/database';
+import { Loader2, ChevronRight, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import CategorySelect from '@/components/form/CategorySelect';
@@ -15,6 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ExpenseFormData {
   date: string;
@@ -30,6 +40,7 @@ const ExpensesPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [expenseToDelete, setExpenseToDelete] = useState<DBExpenseEntry | null>(null);
   
   const [formData, setFormData] = useState<ExpenseFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -111,6 +122,21 @@ const ExpensesPage = () => {
     }
   };
 
+  const handleDelete = async (expense: DBExpenseEntry) => {
+    if (!expense.id) return;
+    
+    try {
+      await deleteExpense(expense.id);
+      await loadExpenses();
+      toast.success('Expense entry deleted successfully');
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Failed to delete expense entry');
+    } finally {
+      setExpenseToDelete(null);
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -135,12 +161,13 @@ const ExpensesPage = () => {
                 <TableHead className="w-[200px]">Description</TableHead>
                 <TableHead className="text-right w-[120px]">Amount</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading expenses data...
@@ -149,7 +176,7 @@ const ExpensesPage = () => {
                 </TableRow>
               ) : expenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No expenses entries yet
                   </TableCell>
                 </TableRow>
@@ -161,6 +188,16 @@ const ExpensesPage = () => {
                     <TableCell>{expense.description}</TableCell>
                     <TableCell className="text-right">৳{expense.amount.toFixed(2)}</TableCell>
                     <TableCell>{expense.notes}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setExpenseToDelete(expense)}
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -269,6 +306,30 @@ const ExpensesPage = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog 
+        open={expenseToDelete !== null} 
+        onOpenChange={(open) => !open && setExpenseToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this expense entry.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => expenseToDelete && handleDelete(expenseToDelete)}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

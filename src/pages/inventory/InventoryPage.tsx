@@ -14,6 +14,7 @@ import {
   getInventory, 
   getPurchases, 
   addPurchase,
+  deletePurchase,
   getProductCategories,
   getSupplierCategories,
   getColorCategories,
@@ -26,12 +27,22 @@ import {
   type PurchaseEntry,
   type Category
 } from '@/utils/database';
-import { Loader2, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronRight, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CategorySelect from '@/components/form/CategorySelect';
 import GenderSelect from '@/components/form/GenderSelect';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PurchaseFormData {
   date: string;
@@ -52,6 +63,7 @@ const InventoryPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [purchaseToDelete, setPurchaseToDelete] = useState<PurchaseEntry | null>(null);
   
   const [productCategories, setProductCategories] = useState<Category[]>([]);
   const [supplierCategories, setSupplierCategories] = useState<Category[]>([]);
@@ -199,6 +211,21 @@ const InventoryPage = () => {
     }
   };
 
+  const handleDelete = async (purchase: PurchaseEntry) => {
+    if (!purchase.id) return;
+    
+    try {
+      await deletePurchase(purchase.id);
+      await loadData();
+      toast.success('Purchase entry deleted successfully');
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      toast.error('Failed to delete purchase entry');
+    } finally {
+      setPurchaseToDelete(null);
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -272,12 +299,13 @@ const InventoryPage = () => {
                   <TableHead className="text-right w-[120px]">Price</TableHead>
                   <TableHead className="text-right w-[120px]">Total</TableHead>
                   <TableHead>Notes</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       <div className="flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
                         Loading purchases data...
@@ -286,7 +314,7 @@ const InventoryPage = () => {
                   </TableRow>
                 ) : purchases.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center text-muted-foreground">
                       No purchase entries yet
                     </TableCell>
                   </TableRow>
@@ -303,6 +331,16 @@ const InventoryPage = () => {
                       <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
                       <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
                       <TableCell>{purchase.notes}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPurchaseToDelete(purchase)}
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -477,6 +515,30 @@ const InventoryPage = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog 
+        open={purchaseToDelete !== null} 
+        onOpenChange={(open) => !open && setPurchaseToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this purchase entry and update the inventory accordingly.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => purchaseToDelete && handleDelete(purchaseToDelete)}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

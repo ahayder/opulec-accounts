@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -251,6 +251,22 @@ export const getExpenses = async (): Promise<ExpenseEntry[]> => {
     });
   } catch (error) {
     console.error('Error getting expenses:', error);
+    throw error;
+  }
+};
+
+export const deleteExpense = async (expenseId: string): Promise<void> => {
+  try {
+    const expenseRef = doc(db, 'expenses', expenseId);
+    const expenseDoc = await getDoc(expenseRef);
+    
+    if (!expenseDoc.exists()) {
+      throw new Error('Expense not found');
+    }
+    
+    await deleteDoc(expenseRef);
+  } catch (error) {
+    console.error('Error deleting expense:', error);
     throw error;
   }
 };
@@ -572,6 +588,35 @@ export const deleteSale = async (saleId: string): Promise<void> => {
     await batch.commit();
   } catch (error) {
     console.error('Error deleting sale:', error);
+    throw error;
+  }
+};
+
+export const deletePurchase = async (purchaseId: string): Promise<void> => {
+  try {
+    // Get the purchase data first to update inventory
+    const purchaseRef = doc(db, 'purchases', purchaseId);
+    const purchaseDoc = await getDoc(purchaseRef);
+    
+    if (!purchaseDoc.exists()) {
+      throw new Error('Purchase not found');
+    }
+
+    const purchaseData = purchaseDoc.data();
+    
+    // Start a batch write
+    const batch = writeBatch(db);
+
+    // Delete the purchase document
+    batch.delete(purchaseRef);
+
+    // Update inventory (subtract the quantity since we're removing the purchase)
+    await updateInventory(purchaseData.product, -purchaseData.quantity);
+
+    // Commit the batch
+    await batch.commit();
+  } catch (error) {
+    console.error('Error deleting purchase:', error);
     throw error;
   }
 }; 

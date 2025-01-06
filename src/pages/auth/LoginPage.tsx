@@ -31,11 +31,15 @@ const LoginPage = () => {
 
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      toast.success('Logged in successfully');
       navigate('/');
+      toast.success('Logged in successfully', {
+        dismissible: true
+      });
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Invalid email or password');
+      console.error('Error logging in:', error);
+      toast.error('Invalid email or password', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }

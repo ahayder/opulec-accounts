@@ -31,7 +31,9 @@ const SignupPage = () => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error('Passwords do not match', {
+        dismissible: true
+      });
       return;
     }
 
@@ -45,11 +47,15 @@ const SignupPage = () => {
         displayName: formData.name
       });
 
-      toast.success('Account created successfully');
+      toast.success('Account created successfully', {
+        dismissible: true
+      });
       navigate('/');
     } catch (error) {
       console.error('Signup error:', error);
-      toast.error('Failed to create account. Email might be already registered.');
+      toast.error('Failed to create account. Email might be already registered.', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }

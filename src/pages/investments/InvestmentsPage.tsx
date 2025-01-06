@@ -39,7 +39,9 @@ const InvestmentsPage = () => {
       setInvestments(data);
     } catch (error) {
       console.error('Error loading investments:', error);
-      toast.error('Failed to load investments');
+      toast.error('Failed to load investments', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -64,10 +66,14 @@ const InvestmentsPage = () => {
         amount: 0,
         note: ''
       });
-      toast.success('Investment added successfully');
+      toast.success('Investment added successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error adding investment:', error);
-      toast.error('Failed to add investment');
+      toast.error('Failed to add investment', {
+        dismissible: true
+      });
     } finally {
       setIsSubmitting(false);
     }

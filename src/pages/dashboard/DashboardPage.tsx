@@ -102,7 +102,9 @@ const DashboardPage = () => {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      toast.error('Failed to load dashboard data', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }

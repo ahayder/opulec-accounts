@@ -99,7 +99,9 @@ const SalesPage = () => {
       setDialColorCategories(dialColorCats);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load sales data');
+      toast.error('Failed to load sales data', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +132,9 @@ const SalesPage = () => {
     e.preventDefault();
     
     if (!newSale.product || !newSale.order_number || !newSale.quantity || !newSale.price) {
-      toast.error('Please fill in all required fields');
+      toast.error('Please fill in all required fields', {
+        dismissible: true
+      });
       return;
     }
 
@@ -152,10 +156,14 @@ const SalesPage = () => {
       await addSale(saleEntry);
       await loadData();
       setNewSale({ date: formatDate(new Date()) }); // Reset form
-      toast.success('Sale entry added successfully');
+      toast.success('Sale entry added successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error adding sale:', error);
-      toast.error('Failed to add sale entry');
+      toast.error('Failed to add sale entry', {
+        dismissible: true
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -167,10 +175,14 @@ const SalesPage = () => {
     try {
       await deleteSale(sale.id);
       await loadData();
-      toast.success('Sale entry deleted successfully');
+      toast.success('Sale entry deleted successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error deleting sale:', error);
-      toast.error('Failed to delete sale entry');
+      toast.error('Failed to delete sale entry', {
+        dismissible: true
+      });
     } finally {
       setSaleToDelete(null);
     }
@@ -183,10 +195,14 @@ const SalesPage = () => {
       setIsRestoring(true);
       await restoreSale(sale.id);
       await loadData();
-      toast.success('Sale entry restored successfully');
+      toast.success('Sale entry restored successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error restoring sale:', error);
-      toast.error('Failed to restore sale entry');
+      toast.error('Failed to restore sale entry', {
+        dismissible: true
+      });
     } finally {
       setIsRestoring(false);
     }

@@ -124,7 +124,9 @@ const InventoryPage = () => {
       setDialColorCategories(dialColorCats);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load inventory data');
+      toast.error('Failed to load inventory data', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -152,7 +154,9 @@ const InventoryPage = () => {
       setProductCategories(categories);
     } catch (error) {
       console.error('Error adding product category:', error);
-      toast.error('Failed to add product');
+      toast.error('Failed to add product', {
+        dismissible: true
+      });
     }
   };
 
@@ -163,7 +167,9 @@ const InventoryPage = () => {
       setSupplierCategories(categories);
     } catch (error) {
       console.error('Error adding supplier category:', error);
-      toast.error('Failed to add supplier');
+      toast.error('Failed to add supplier', {
+        dismissible: true
+      });
     }
   };
 
@@ -174,7 +180,9 @@ const InventoryPage = () => {
       setColorCategories(categories);
     } catch (error) {
       console.error('Error adding color category:', error);
-      toast.error('Failed to add color');
+      toast.error('Failed to add color', {
+        dismissible: true
+      });
     }
   };
 
@@ -185,7 +193,9 @@ const InventoryPage = () => {
       setDialColorCategories(categories);
     } catch (error) {
       console.error('Error adding dial color category:', error);
-      toast.error('Failed to add dial color');
+      toast.error('Failed to add dial color', {
+        dismissible: true
+      });
     }
   };
 
@@ -193,7 +203,9 @@ const InventoryPage = () => {
     e.preventDefault();
     
     if (!formData.product || !formData.quantity || !formData.price) {
-      toast.error('Please fill in all required fields');
+      toast.error('Please fill in all required fields', {
+        dismissible: true
+      });
       return;
     }
 
@@ -221,10 +233,14 @@ const InventoryPage = () => {
         color: '',
         dialColor: ''
       });
-      toast.success('Purchase added successfully');
+      toast.success('Purchase added successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error adding purchase:', error);
-      toast.error('Failed to add purchase');
+      toast.error('Failed to add purchase', {
+        dismissible: true
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -236,10 +252,14 @@ const InventoryPage = () => {
     try {
       await deletePurchase(purchase.id);
       await loadData();
-      toast.success('Purchase entry deleted successfully');
+      toast.success('Purchase entry deleted successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error deleting purchase:', error);
-      toast.error('Failed to delete purchase entry');
+      toast.error('Failed to delete purchase entry', {
+        dismissible: true
+      });
     } finally {
       setPurchaseToDelete(null);
     }

@@ -40,6 +40,7 @@ const SettingsPage = () => {
   const [colorCategories, setColorCategories] = useState<Category[]>([]);
   const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryToDelete | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     loadAllCategories();
@@ -62,7 +63,11 @@ const SettingsPage = () => {
       setDialColorCategories(dialColors);
     } catch (error) {
       console.error('Error loading categories:', error);
-      toast.error('Failed to load categories');
+      toast.error('Failed to load categories', {
+        dismissible: true
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,10 +87,16 @@ const SettingsPage = () => {
       await deleteDoc(doc(db, collectionName, category.id));
       await loadAllCategories();
       setCategoryToDelete(null);
-      toast.success('Category deleted successfully');
+      toast.success('Category deleted successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error deleting category:', error);
-      toast.error('Failed to delete category');
+      toast.error('Failed to delete category', {
+        dismissible: true
+      });
+    } finally {
+      setCategoryToDelete(null);
     }
   };
 

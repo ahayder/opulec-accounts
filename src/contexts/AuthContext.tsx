@@ -38,11 +38,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await signOut(auth);
+      toast.success('Logged out successfully', {
+        dismissible: true
+      });
       navigate('/login');
-      toast.success('Logged out successfully');
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error('Failed to log out');
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out', {
+        dismissible: true
+      });
     }
   };
 

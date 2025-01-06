@@ -30,7 +30,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider defaultTheme="dark" storageKey="opulec-theme">
         <AuthProvider>
           <App />
-          <Toaster position="top-right" />
+          <Toaster 
+            position="top-right" 
+            closeButton
+            richColors
+          />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

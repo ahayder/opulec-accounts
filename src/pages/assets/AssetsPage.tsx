@@ -40,7 +40,9 @@ const AssetsPage = () => {
       setAssets(data);
     } catch (error) {
       console.error('Error loading assets:', error);
-      toast.error('Failed to load assets');
+      toast.error('Failed to load assets', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -66,10 +68,14 @@ const AssetsPage = () => {
         usefulLife: 0,
         note: ''
       });
-      toast.success('Asset added successfully');
+      toast.success('Asset added successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error adding asset:', error);
-      toast.error('Failed to add asset');
+      toast.error('Failed to add asset', {
+        dismissible: true
+      });
     } finally {
       setIsSubmitting(false);
     }

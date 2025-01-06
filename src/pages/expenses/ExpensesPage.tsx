@@ -69,7 +69,9 @@ const ExpensesPage = () => {
       setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
-      toast.error('Failed to load expenses');
+      toast.error('Failed to load expenses', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +83,9 @@ const ExpensesPage = () => {
       setCategories(data);
     } catch (error) {
       console.error('Error loading categories:', error);
-      toast.error('Failed to load categories');
+      toast.error('Failed to load categories', {
+        dismissible: true
+      });
     }
   };
 
@@ -92,7 +96,9 @@ const ExpensesPage = () => {
       setExpenses(expensesData);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load expenses data');
+      toast.error('Failed to load expenses data', {
+        dismissible: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +120,9 @@ const ExpensesPage = () => {
       handleInputChange('category', categoryName.trim());
     } catch (error) {
       console.error('Error adding category:', error);
-      toast.error('Failed to add category');
+      toast.error('Failed to add category', {
+        dismissible: true
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -133,10 +141,14 @@ const ExpensesPage = () => {
         amount: 0,
         notes: ''
       });
-      toast.success('Expense added successfully');
+      toast.success('Expense added successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error adding expense:', error);
-      toast.error('Failed to add expense');
+      toast.error('Failed to add expense', {
+        dismissible: true
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -148,10 +160,14 @@ const ExpensesPage = () => {
     try {
       await deleteExpense(expense.id);
       await loadExpenses();
-      toast.success('Expense entry deleted successfully');
+      toast.success('Expense entry deleted successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error deleting expense:', error);
-      toast.error('Failed to delete expense entry');
+      toast.error('Failed to delete expense entry', {
+        dismissible: true
+      });
     } finally {
       setExpenseToDelete(null);
     }
@@ -164,10 +180,14 @@ const ExpensesPage = () => {
       setIsRestoring(true);
       await restoreExpense(expense.id);
       await loadData();
-      toast.success('Expense entry restored successfully');
+      toast.success('Expense entry restored successfully', {
+        dismissible: true
+      });
     } catch (error) {
       console.error('Error restoring expense:', error);
-      toast.error('Failed to restore expense entry');
+      toast.error('Failed to restore expense entry', {
+        dismissible: true
+      });
     } finally {
       setIsRestoring(false);
     }

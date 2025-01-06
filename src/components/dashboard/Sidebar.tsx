@@ -12,6 +12,7 @@ import {
   LayersIcon,
   RocketIcon
 } from '@radix-ui/react-icons';
+import ThemeToggle from '../theme/ThemeToggle';
 
 const Sidebar = () => {
   const { logout } = useAuth();
@@ -123,14 +124,17 @@ const Sidebar = () => {
       </nav>
 
       <div className="border-t p-3 flex-shrink-0">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start gap-3" 
-          onClick={logout}
-        >
-          <ExitIcon className="h-4 w-4" />
-          Sign Out
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            className="flex-1 justify-start gap-3" 
+            onClick={logout}
+          >
+            <ExitIcon className="h-4 w-4" />
+            Sign Out
+          </Button>
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

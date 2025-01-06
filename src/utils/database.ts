@@ -69,7 +69,9 @@ export interface InvestmentEntry {
 export interface InventoryEntry {
   id?: string;
   product: string;
-  quantity: number;
+  quantities: {
+    [key: string]: number; // key format: "gender|color|dialColor"
+  };
   lastUpdated: Timestamp;
 }
 
@@ -82,6 +84,21 @@ export interface Category {
 // Helper function to format date
 const formatDate = (date: Date): string => {
   return dayjs(date).format('DD-MMM-YYYY');
+};
+
+// Helper function to create inventory key
+const createInventoryKey = (gender: string, color: string, dialColor: string): string => {
+  return `${gender || 'none'}|${color || 'none'}|${dialColor || 'none'}`;
+};
+
+// Helper function to parse inventory key
+const parseInventoryKey = (key: string): { gender: string; color: string; dialColor: string } => {
+  const [gender, color, dialColor] = key.split('|');
+  return {
+    gender: gender === 'none' ? '' : gender,
+    color: color === 'none' ? '' : color,
+    dialColor: dialColor === 'none' ? '' : dialColor
+  };
 };
 
 // Sales functions
@@ -164,6 +181,40 @@ export const getSales = async (): Promise<SaleEntry[]> => {
   }
 };
 
+export const getDeletedSales = async (): Promise<SaleEntry[]> => {
+  try {
+    console.log('Fetching deleted sales...');
+    const q = query(
+      collection(db, 'sales'), 
+      where('isDeleted', '==', true)
+    );
+    const querySnapshot = await getDocs(q);
+    console.log('Found deleted sales:', querySnapshot.docs.length);
+    console.log('Deleted sales data:', querySnapshot.docs.map(doc => doc.data()));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
+      return {
+        id: doc.id,
+        date,
+        product: data.product,
+        order_number: data.order_number,
+        quantity: data.quantity,
+        price: data.price,
+        total: data.total,
+        notes: data.notes,
+        gender: data.gender,
+        color: data.color,
+        dialColor: data.dialColor,
+        isDeleted: data.isDeleted
+      } as SaleEntry;
+    });
+  } catch (error) {
+    console.error('Error getting deleted sales:', error);
+    throw error;
+  }
+};
+
 // Purchases functions
 export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
   try {
@@ -182,13 +233,19 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
     batch.set(purchaseRef, {
       ...purchase,
       product: normalizedProduct,
-      date: purchase.date, // Keep the formatted date string
+      date: purchase.date,
       createdAt: Timestamp.now(),
       isDeleted: false
     });
 
-    // Update inventory
-    await updateInventory(normalizedProduct, purchase.quantity);
+    // Update inventory with gender, color, and dialColor
+    await updateInventory(
+      normalizedProduct,
+      purchase.quantity,
+      purchase.gender,
+      purchase.color,
+      purchase.dialColor
+    );
 
     // Commit the batch
     await batch.commit();
@@ -235,8 +292,9 @@ export const addExpense = async (expense: Omit<ExpenseEntry, 'id'>) => {
   try {
     const docRef = await addDoc(collection(db, 'expenses'), {
       ...expense,
-      date: Timestamp.fromDate(dayjs(expense.date, 'DD-MMM-YYYY').toDate()),
-      createdAt: Timestamp.now()
+      date: expense.date, // Store as string to be consistent
+      createdAt: Timestamp.now(),
+      isDeleted: false
     });
     return docRef.id;
   } catch (error) {
@@ -247,18 +305,18 @@ export const addExpense = async (expense: Omit<ExpenseEntry, 'id'>) => {
 
 export const getExpenses = async (): Promise<ExpenseEntry[]> => {
   try {
-    // Simplified query without composite index
+    console.log('Fetching expenses...');
     const q = query(
       collection(db, 'expenses'),
-      where('isDeleted', '!=', true)
+      where('isDeleted', '==', false)
     );
     const querySnapshot = await getDocs(q);
+    console.log('Found expenses:', querySnapshot.docs.length);
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
-        date,
+        date: data.date,
         category: data.category,
         description: data.description,
         amount: data.amount,
@@ -407,42 +465,42 @@ export const getInvestments = async (): Promise<InvestmentEntry[]> => {
 };
 
 // Inventory functions
-export const updateInventory = async (product: string, quantityChange: number): Promise<void> => {
+export const updateInventory = async (
+  product: string,
+  quantity: number,
+  gender: string = '',
+  color: string = '',
+  dialColor: string = ''
+): Promise<void> => {
   try {
-    // Normalize the product name
-    const normalizedProduct = product.trim();
-    
-    if (!normalizedProduct) {
-      throw new Error('Product name is required');
-    }
-
     const inventoryRef = collection(db, 'inventory');
-    const q = query(inventoryRef, where('product', '==', normalizedProduct));
+    const q = query(inventoryRef, where('product', '==', product));
     const querySnapshot = await getDocs(q);
+    const key = createInventoryKey(gender, color, dialColor);
 
     if (querySnapshot.empty) {
-      // If product doesn't exist in inventory and we're adding stock
-      if (quantityChange > 0) {
-        await addDoc(inventoryRef, {
-          product: normalizedProduct,
-          quantity: quantityChange,
-          lastUpdated: Timestamp.now()
-        });
-      } else {
-        throw new Error(`Product "${normalizedProduct}" not found in inventory`);
-      }
+      // Create new inventory entry
+      await addDoc(inventoryRef, {
+        product,
+        quantities: { [key]: quantity },
+        lastUpdated: Timestamp.now()
+      });
     } else {
-      // Update existing inventory
-      const inventoryDoc = querySnapshot.docs[0];
-      const currentQuantity = inventoryDoc.data().quantity;
-      const newQuantity = currentQuantity + quantityChange;
+      // Update existing inventory entry
+      const docRef = querySnapshot.docs[0].ref;
+      const currentData = querySnapshot.docs[0].data();
+      const currentQuantities = currentData.quantities || {};
+      const newQuantity = (currentQuantities[key] || 0) + quantity;
 
-      if (newQuantity < 0) {
-        throw new Error(`Insufficient inventory for "${normalizedProduct}". Current stock: ${currentQuantity}`);
+      if (newQuantity === 0) {
+        // Remove the key if quantity becomes 0
+        delete currentQuantities[key];
+      } else {
+        currentQuantities[key] = newQuantity;
       }
 
-      await updateDoc(doc(db, 'inventory', inventoryDoc.id), {
-        quantity: newQuantity,
+      await updateDoc(docRef, {
+        quantities: currentQuantities,
         lastUpdated: Timestamp.now()
       });
     }
@@ -454,14 +512,17 @@ export const updateInventory = async (product: string, quantityChange: number): 
 
 export const getInventory = async (): Promise<InventoryEntry[]> => {
   try {
-    const q = query(collection(db, 'inventory'), orderBy('product', 'asc'));
+    const q = query(collection(db, 'inventory'));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      product: doc.data().product,
-      quantity: doc.data().quantity,
-      lastUpdated: doc.data().lastUpdated
-    }));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        product: data.product,
+        quantities: data.quantities || {},
+        lastUpdated: data.lastUpdated
+      } as InventoryEntry;
+    });
   } catch (error) {
     console.error('Error getting inventory:', error);
     throw error;
@@ -618,7 +679,6 @@ export const deleteSale = async (saleId: string): Promise<void> => {
 
 export const deletePurchase = async (purchaseId: string): Promise<void> => {
   try {
-    // Get the purchase data first to update inventory
     const purchaseRef = doc(db, 'purchases', purchaseId);
     const purchaseDoc = await getDoc(purchaseRef);
     
@@ -637,8 +697,14 @@ export const deletePurchase = async (purchaseId: string): Promise<void> => {
       deletedAt: Timestamp.now()
     });
 
-    // Update inventory (subtract the quantity since we're removing the purchase)
-    await updateInventory(purchaseData.product, -purchaseData.quantity);
+    // Update inventory with negative quantity
+    await updateInventory(
+      purchaseData.product,
+      -purchaseData.quantity,
+      purchaseData.gender,
+      purchaseData.color,
+      purchaseData.dialColor
+    );
 
     // Commit the batch
     await batch.commit();
@@ -649,38 +715,6 @@ export const deletePurchase = async (purchaseId: string): Promise<void> => {
 };
 
 // Functions to get deleted records
-export const getDeletedSales = async (): Promise<SaleEntry[]> => {
-  try {
-    const q = query(
-      collection(db, 'sales'), 
-      where('isDeleted', '==', true),
-      orderBy('deletedAt', 'desc')
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
-      return {
-        id: doc.id,
-        date,
-        product: data.product,
-        order_number: data.order_number,
-        quantity: data.quantity,
-        price: data.price,
-        total: data.total,
-        notes: data.notes,
-        gender: data.gender,
-        color: data.color,
-        dialColor: data.dialColor,
-        isDeleted: data.isDeleted
-      } as SaleEntry;
-    });
-  } catch (error) {
-    console.error('Error getting deleted sales:', error);
-    throw error;
-  }
-};
-
 export const getDeletedPurchases = async (): Promise<PurchaseEntry[]> => {
   try {
     // Simplified query without composite index
@@ -715,18 +749,19 @@ export const getDeletedPurchases = async (): Promise<PurchaseEntry[]> => {
 
 export const getDeletedExpenses = async (): Promise<ExpenseEntry[]> => {
   try {
+    console.log('Fetching deleted expenses...');
     const q = query(
       collection(db, 'expenses'),
-      where('isDeleted', '==', true),
-      orderBy('deletedAt', 'desc')
+      where('isDeleted', '==', true)
     );
     const querySnapshot = await getDocs(q);
+    console.log('Found deleted expenses:', querySnapshot.docs.length);
+    console.log('Deleted expenses data:', querySnapshot.docs.map(doc => doc.data()));
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      const date = data.date instanceof Timestamp ? formatDate(data.date.toDate()) : data.date;
       return {
         id: doc.id,
-        date,
+        date: data.date,
         category: data.category,
         description: data.description,
         amount: data.amount,
@@ -794,8 +829,14 @@ export const restorePurchase = async (purchaseId: string): Promise<void> => {
       restoredAt: Timestamp.now()
     });
 
-    // Update inventory (add the quantity back since we're restoring the purchase)
-    await updateInventory(purchaseData.product, purchaseData.quantity);
+    // Update inventory with the original quantity
+    await updateInventory(
+      purchaseData.product,
+      purchaseData.quantity,
+      purchaseData.gender,
+      purchaseData.color,
+      purchaseData.dialColor
+    );
 
     // Commit the batch
     await batch.commit();

@@ -481,8 +481,8 @@ const SalesPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this sale entry and update the inventory accordingly.
-              This action cannot be undone.
+              This will move this sale entry to the deleted records and update the inventory accordingly.
+              You can restore it later from the deleted records view.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

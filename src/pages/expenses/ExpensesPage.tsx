@@ -133,7 +133,7 @@ const ExpensesPage = () => {
     setIsSubmitting(true);
     try {
       await addExpense(formData);
-      await loadExpenses();
+      await loadData();
       setFormData({
         date: new Date().toISOString().split('T')[0],
         category: '',
@@ -159,7 +159,7 @@ const ExpensesPage = () => {
     
     try {
       await deleteExpense(expense.id);
-      await loadExpenses();
+      await loadData();
       toast.success('Expense entry deleted successfully', {
         dismissible: true
       });
@@ -393,8 +393,8 @@ const ExpensesPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this expense entry.
-              This action cannot be undone.
+              This will move this expense entry to the deleted records.
+              You can restore it later from the deleted records view.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

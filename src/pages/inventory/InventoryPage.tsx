@@ -1,3 +1,4 @@
+import { Timestamp } from 'firebase/firestore';
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
@@ -23,11 +24,13 @@ import {
   addSupplierCategory,
   addColorCategory,
   addDialColorCategory,
+  getDeletedPurchases,
+  restorePurchase,
   type InventoryEntry, 
   type PurchaseEntry,
   type Category
 } from '@/utils/database';
-import { Loader2, ChevronRight, Trash2 } from 'lucide-react';
+import { Loader2, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import dayjs from 'dayjs';
+import { Switch } from "@/components/ui/switch";
 
 interface PurchaseFormData {
   date: string;
@@ -69,6 +73,8 @@ const InventoryPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [purchaseToDelete, setPurchaseToDelete] = useState<PurchaseEntry | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   
   const [productCategories, setProductCategories] = useState<Category[]>([]);
   const [supplierCategories, setSupplierCategories] = useState<Category[]>([]);
@@ -90,7 +96,7 @@ const InventoryPage = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [showDeleted]);
 
   const loadData = async () => {
     try {
@@ -104,7 +110,7 @@ const InventoryPage = () => {
         dialColorCats
       ] = await Promise.all([
         getInventory(),
-        getPurchases(),
+        showDeleted ? getDeletedPurchases() : getPurchases(),
         getProductCategories(),
         getSupplierCategories(),
         getColorCategories(),
@@ -265,6 +271,26 @@ const InventoryPage = () => {
     }
   };
 
+  const handleRestore = async (purchase: PurchaseEntry) => {
+    if (!purchase.id) return;
+    
+    try {
+      setIsRestoring(true);
+      await restorePurchase(purchase.id);
+      await loadData();
+      toast.success('Purchase entry restored successfully', {
+        dismissible: true
+      });
+    } catch (error) {
+      console.error('Error restoring purchase:', error);
+      toast.error('Failed to restore purchase entry', {
+        dismissible: true
+      });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -290,15 +316,18 @@ const InventoryPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px]">Product</TableHead>
-                  <TableHead className="text-right w-[120px]">Quantity</TableHead>
+                  <TableHead className="w-[200px]">Product</TableHead>
+                  <TableHead className="w-[100px]">Gender</TableHead>
+                  <TableHead className="w-[100px]">Color</TableHead>
+                  <TableHead className="w-[100px]">Dial Color</TableHead>
+                  <TableHead className="text-right w-[100px]">Quantity</TableHead>
                   <TableHead>Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
                         Loading inventory data...
@@ -307,84 +336,123 @@ const InventoryPage = () => {
                   </TableRow>
                 ) : inventory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No inventory entries yet
                     </TableCell>
                   </TableRow>
                 ) : (
-                  inventory.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.product}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell>{item.lastUpdated.toDate().toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))
+                  inventory.flatMap((item) => 
+                    Object.entries(item.quantities).map(([key, quantity]) => {
+                      const [gender, color, dialColor] = key.split('|');
+                      return (
+                        <TableRow key={`${item.id}-${key}`}>
+                          <TableCell>{item.product}</TableCell>
+                          <TableCell>{gender === 'none' ? '' : gender}</TableCell>
+                          <TableCell>{color === 'none' ? '' : color}</TableCell>
+                          <TableCell>{dialColor === 'none' ? '' : dialColor}</TableCell>
+                          <TableCell className="text-right">{quantity}</TableCell>
+                          <TableCell>
+                            {item.lastUpdated instanceof Timestamp 
+                              ? formatDate(item.lastUpdated.toDate().toISOString())
+                              : formatDate(new Date().toISOString())}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )
                 )}
               </TableBody>
             </Table>
           </TabsContent>
 
-          <TabsContent value="purchases" className="border rounded-lg mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[120px]">Date</TableHead>
-                  <TableHead className="w-[200px]">Product</TableHead>
-                  <TableHead className="w-[150px]">Supplier</TableHead>
-                  <TableHead className="w-[100px]">Gender</TableHead>
-                  <TableHead className="w-[100px]">Color</TableHead>
-                  <TableHead className="w-[100px]">Dial Color</TableHead>
-                  <TableHead className="text-right w-[100px]">Quantity</TableHead>
-                  <TableHead className="text-right w-[120px]">Price</TableHead>
-                  <TableHead className="text-right w-[120px]">Total</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
+          <TabsContent value="purchases" className="mt-4">
+            <div className="flex justify-end mb-4">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="show-deleted" className="text-sm">
+                  Show Deleted Records
+                </Label>
+                <Switch
+                  id="show-deleted"
+                  checked={showDeleted}
+                  onCheckedChange={setShowDeleted}
+                />
+              </div>
+            </div>
+
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
-                      <div className="flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                        Loading purchases data...
-                      </div>
-                    </TableCell>
+                    <TableHead className="w-[120px]">Date</TableHead>
+                    <TableHead className="w-[200px]">Product</TableHead>
+                    <TableHead className="w-[150px]">Supplier</TableHead>
+                    <TableHead className="w-[100px]">Gender</TableHead>
+                    <TableHead className="w-[100px]">Color</TableHead>
+                    <TableHead className="w-[100px]">Dial Color</TableHead>
+                    <TableHead className="text-right w-[100px]">Quantity</TableHead>
+                    <TableHead className="text-right w-[120px]">Price</TableHead>
+                    <TableHead className="text-right w-[120px]">Total</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
-                ) : purchases.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground">
-                      No purchase entries yet
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  purchases.map((purchase) => (
-                    <TableRow key={purchase.id}>
-                      <TableCell>{purchase.date}</TableCell>
-                      <TableCell>{purchase.product}</TableCell>
-                      <TableCell>{purchase.supplier}</TableCell>
-                      <TableCell>{purchase.gender}</TableCell>
-                      <TableCell>{purchase.color}</TableCell>
-                      <TableCell>{purchase.dialColor}</TableCell>
-                      <TableCell className="text-right">{purchase.quantity}</TableCell>
-                      <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
-                      <TableCell>{purchase.notes}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setPurchaseToDelete(purchase)}
-                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-8">
+                        <div className="flex items-center justify-center">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          Loading purchases data...
+                        </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : purchases.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center text-muted-foreground">
+                        No purchase entries yet
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    purchases.map((purchase) => (
+                      <TableRow key={purchase.id}>
+                        <TableCell>{purchase.date}</TableCell>
+                        <TableCell>{purchase.product}</TableCell>
+                        <TableCell>{purchase.supplier}</TableCell>
+                        <TableCell>{purchase.gender}</TableCell>
+                        <TableCell>{purchase.color}</TableCell>
+                        <TableCell>{purchase.dialColor}</TableCell>
+                        <TableCell className="text-right">{purchase.quantity}</TableCell>
+                        <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
+                        <TableCell>{purchase.notes}</TableCell>
+                        <TableCell>
+                          {showDeleted ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRestore(purchase)}
+                              className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
+                              disabled={isRestoring}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPurchaseToDelete(purchase)}
+                              className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -563,8 +631,8 @@ const InventoryPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this purchase entry and update the inventory accordingly.
-              This action cannot be undone.
+              This will move this purchase entry to the deleted records and update the inventory accordingly.
+              You can restore it later from the deleted records view.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -52,6 +52,7 @@ export interface AssetEntry {
   cost: number;
   usefulLife: number;
   lastUpdated?: Timestamp;
+  note?: string;
 }
 
 export interface InvestmentEntry {

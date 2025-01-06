@@ -25,7 +25,8 @@ const AssetsPage = () => {
     name: '',
     purchaseDate: new Date().toISOString().split('T')[0],
     cost: 0,
-    usefulLife: 0
+    usefulLife: 0,
+    note: ''
   });
 
   useEffect(() => {
@@ -62,7 +63,8 @@ const AssetsPage = () => {
         name: '',
         purchaseDate: new Date().toISOString().split('T')[0],
         cost: 0,
-        usefulLife: 0
+        usefulLife: 0,
+        note: ''
       });
       toast.success('Asset added successfully');
     } catch (error) {
@@ -98,12 +100,13 @@ const AssetsPage = () => {
                 <TableHead className="text-right w-[120px]">Useful Life</TableHead>
                 <TableHead className="text-right w-[120px]">Depreciation/Month</TableHead>
                 <TableHead className="text-right w-[120px]">Net Book Value</TableHead>
+                <TableHead className="w-[200px]">Note</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading assets data...
@@ -112,7 +115,7 @@ const AssetsPage = () => {
                 </TableRow>
               ) : assets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No assets entries yet
                   </TableCell>
                 </TableRow>
@@ -137,6 +140,7 @@ const AssetsPage = () => {
                       <TableCell className="text-right">{asset.usefulLife} years</TableCell>
                       <TableCell className="text-right">৳{depreciationPerMonth.toFixed(2)}</TableCell>
                       <TableCell className="text-right">৳{netBookValue.toFixed(2)}</TableCell>
+                      <TableCell>{asset.note}</TableCell>
                     </TableRow>
                   );
                 })
@@ -213,6 +217,18 @@ const AssetsPage = () => {
                     value={formData.usefulLife}
                     onChange={(e) => handleInputChange('usefulLife', parseInt(e.target.value))}
                     placeholder="1"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="note">Note</Label>
+                  <Input
+                    id="note"
+                    type="text"
+                    value={formData.note}
+                    onChange={(e) => handleInputChange('note', e.target.value)}
+                    placeholder="Add a note..."
                     className="w-full"
                     disabled={isSubmitting}
                   />

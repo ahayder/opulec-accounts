@@ -145,7 +145,10 @@ export const getSales = async (): Promise<SaleEntry[]> => {
         quantity: data.quantity,
         price: data.price,
         total: data.total,
-        notes: data.notes
+        notes: data.notes,
+        gender: data.gender,
+        color: data.color,
+        dialColor: data.dialColor
       } as SaleEntry;
     });
   } catch (error) {

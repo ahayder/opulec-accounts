@@ -3,12 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory } from '@/utils/database';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ChevronRight } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
 import { useBusiness } from '@/contexts/BusinessContext';
 import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ExpenseFormData {
   date: string;
@@ -23,6 +32,8 @@ const ExpensesPage = () => {
   const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [open, setOpen] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   
@@ -45,10 +56,14 @@ const ExpensesPage = () => {
     if (!currentBusiness) return;
     
     try {
+      setIsLoading(true);
       const data = await getExpenses(currentBusiness.id);
       setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
+      toast.error('Failed to load expenses');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -58,6 +73,7 @@ const ExpensesPage = () => {
       setCategories(data);
     } catch (error) {
       console.error('Error loading categories:', error);
+      toast.error('Failed to load categories');
     }
   };
 
@@ -78,6 +94,7 @@ const ExpensesPage = () => {
       handleInputChange('category', categoryName.trim());
     } catch (error) {
       console.error('Error adding category:', error);
+      toast.error('Failed to add category');
     } finally {
       setIsSubmitting(false);
     }
@@ -119,168 +136,212 @@ const ExpensesPage = () => {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="h-16 border-b flex items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Expenses</h1>
-          <p className="text-muted-foreground">Track and manage your business expenses</p>
+    <div className="flex h-full">
+      <div 
+        className={cn(
+          "transition-all duration-300 ease-in-out p-4 md:p-8 pt-6 overflow-auto",
+          isSidebarOpen ? "pr-[400px]" : "pr-2"
+        )}
+      >
+        <div className="flex justify-between items-center border-b pb-4">
+          <div>
+            <h1 className="text-2xl font-bold">Expenses</h1>
+            <p className="text-muted-foreground">Track and manage your business expenses</p>
+          </div>
+        </div>
+
+        <div className="border rounded-lg mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Date</TableHead>
+                <TableHead className="w-[150px]">Category</TableHead>
+                <TableHead className="w-[200px]">Description</TableHead>
+                <TableHead className="text-right w-[120px]">Amount</TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Loading expenses data...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : expenses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    No expenses entries yet
+                  </TableCell>
+                </TableRow>
+              ) : (
+                expenses.map((expense) => (
+                  <TableRow key={expense.id}>
+                    <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{expense.category}</TableCell>
+                    <TableCell>{expense.description}</TableCell>
+                    <TableCell className="text-right">৳{expense.amount.toFixed(2)}</TableCell>
+                    <TableCell>{expense.notes}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">New Expense Entry</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
-            <div className="md:col-span-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => handleInputChange('date', e.target.value)}
-                className="w-full"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="md:col-span-3">
-              <Label htmlFor="category">Category</Label>
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between"
+      <div 
+        className={cn(
+          "fixed right-0 top-0 h-full transition-all duration-300 ease-in-out",
+          isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-16px)]"
+        )}
+      >
+        <Button
+          variant="outline"
+          size="icon"
+          className={cn(
+            "h-10 w-10 absolute -left-5 top-[68px] z-10 rounded-full bg-background border shadow-md hover:bg-accent",
+            !isSidebarOpen && "rotate-180"
+          )}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          <ChevronRight className="h-6 w-6" />
+        </Button>
+        <div className="w-[400px] border-l bg-background h-full overflow-y-auto">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4">New Expense Entry</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => handleInputChange('date', e.target.value)}
+                    className="w-full"
                     disabled={isSubmitting}
-                  >
-                    {formData.category
-                      ? categories.find((category) => category.name === formData.category)?.name
-                      : "Select category..."}
-                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command shouldFilter={false}>
-                    <CommandInput 
-                      placeholder="Search or add category..." 
-                      value={newCategory}
-                      onValueChange={setNewCategory}
-                      onKeyDown={handleKeyDown}
-                    />
-                    <CommandList>
-                      <CommandEmpty className="py-6 text-center text-sm">
-                        {newCategory && (
-                          <div className="flex items-center justify-center gap-2 text-sm">
-                            <Plus className="h-4 w-4" />
-                            <span>Press Enter to add "{newCategory}"</span>
-                          </div>
-                        )}
-                        {!newCategory && "No categories found"}
-                      </CommandEmpty>
-                      <CommandGroup>
-                        {categories
-                          .filter(category => 
-                            category.name.toLowerCase().includes(newCategory.toLowerCase())
-                          )
-                          .map((category) => (
-                            <CommandItem
-                              key={category.id}
-                              onSelect={() => {
-                                handleInputChange('category', category.name);
-                                setOpen(false);
-                              }}
-                              className="flex items-center justify-between"
-                            >
-                              <span>{category.name}</span>
-                              {formData.category === category.name && (
-                                <CheckIcon className="ml-2 h-4 w-4" />
-                              )}
-                            </CommandItem>
-                          ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="md:col-span-3">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                type="text"
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Enter description"
-                className="w-full"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={formData.amount}
-                onChange={(e) => handleInputChange('amount', parseFloat(e.target.value))}
-                placeholder="৳0.00"
-                className="w-full"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Input
-                id="notes"
-                type="text"
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                placeholder="Notes"
-                className="w-full"
-                disabled={isSubmitting}
-              />
-            </div>
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="category">Category</Label>
+                  <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full justify-between"
+                        disabled={isSubmitting}
+                      >
+                        {formData.category
+                          ? categories.find((category) => category.name === formData.category)?.name
+                          : "Select category..."}
+                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder="Search or add category..." 
+                          value={newCategory}
+                          onValueChange={setNewCategory}
+                          onKeyDown={handleKeyDown}
+                        />
+                        <CommandList>
+                          <CommandEmpty className="py-6 text-center text-sm">
+                            {newCategory && (
+                              <div className="flex items-center justify-center gap-2 text-sm">
+                                <Plus className="h-4 w-4" />
+                                <span>Press Enter to add "{newCategory}"</span>
+                              </div>
+                            )}
+                            {!newCategory && "No categories found"}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {categories
+                              .filter(category => 
+                                category.name.toLowerCase().includes(newCategory.toLowerCase())
+                              )
+                              .map((category) => (
+                                <CommandItem
+                                  key={category.id}
+                                  onSelect={() => {
+                                    handleInputChange('category', category.name);
+                                    setOpen(false);
+                                  }}
+                                  className="flex items-center justify-between"
+                                >
+                                  <span>{category.name}</span>
+                                  {formData.category === category.name && (
+                                    <CheckIcon className="ml-2 h-4 w-4" />
+                                  )}
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    placeholder="Enter description"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    value={formData.amount}
+                    onChange={(e) => handleInputChange('amount', parseFloat(e.target.value))}
+                    placeholder="৳0.00"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Input
+                    id="notes"
+                    type="text"
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                    placeholder="Notes"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Entry'
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
-          <div className="mt-4 flex justify-end">
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Entry'
-              )}
-            </Button>
-          </div>
-        </form>
-      </div>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {expenses.map((expense, index) => (
-              <tr key={expense.id || index}>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(expense.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{expense.category}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{expense.description}</td>
-                <td className="px-6 py-4 whitespace-nowrap">৳{expense.amount.toFixed(2)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{expense.notes}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        </div>
       </div>
     </div>
   );

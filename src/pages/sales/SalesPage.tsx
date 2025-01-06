@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSales, addSale, type SaleEntry } from '@/utils/database';
 import { toast } from 'sonner';
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import dayjs from 'dayjs';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { cn } from "@/lib/utils";
 
 // Helper function to format date as DD-MMM-YYYY
 const formatDate = (date: Date | string): string => {
@@ -31,6 +32,7 @@ const SalesPage = () => {
   const [sales, setSales] = useState<SaleEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [newSale, setNewSale] = useState<Partial<SaleEntry>>({
     date: formatDate(new Date())
   });
@@ -114,155 +116,182 @@ const SalesPage = () => {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="h-16 border-b flex items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Sales</h1>
-          <p className="text-muted-foreground">Record and manage your sales transactions</p>
+    <div className="flex h-full">
+      <div 
+        className={cn(
+          "transition-all duration-300 ease-in-out p-4 md:p-8 pt-6 overflow-auto",
+          isSidebarOpen ? "pr-[400px]" : "pr-2"
+        )}
+      >
+        <div className="flex justify-between items-center border-b pb-4">
+          <div>
+            <h1 className="text-2xl font-bold">Sales</h1>
+            <p className="text-muted-foreground">Record and manage your sales transactions</p>
+          </div>
+        </div>
+
+        <div className="border rounded-lg mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Date</TableHead>
+                <TableHead className="w-[180px]">Product</TableHead>
+                <TableHead className="w-[120px]">Order Number</TableHead>
+                <TableHead className="text-right w-[100px]">Quantity</TableHead>
+                <TableHead className="text-right w-[120px]">Price</TableHead>
+                <TableHead className="text-right w-[120px]">Total</TableHead>
+                <TableHead className="w-[200px]">Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Loading sales data...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : sales.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    No sales entries yet
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sales.map((sale) => (
+                  <TableRow key={sale.id}>
+                    <TableCell>{sale.date}</TableCell>
+                    <TableCell>{sale.product}</TableCell>
+                    <TableCell>{sale.order_number}</TableCell>
+                    <TableCell className="text-right">{sale.quantity}</TableCell>
+                    <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
+                    <TableCell>{sale.notes}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
 
-      <div className="bg-card p-6 rounded-lg shadow-sm border">
-        <h2 className="text-xl font-semibold mb-4">New Sale Entry</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-12 gap-4 items-end">
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                name="date"
-                type="date"
-                value={dateToInputValue(newSale.date || new Date())}
-                onChange={handleInputChange}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="product">Product</Label>
-              <Input
-                id="product"
-                name="product"
-                value={newSale.product || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="Product name"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="order_number">Order Number</Label>
-              <Input
-                id="order_number"
-                name="order_number"
-                value={newSale.order_number || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="Order #"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                name="quantity"
-                type="number"
-                min="0"
-                step="1"
-                value={newSale.quantity || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="0"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                name="price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={newSale.price || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="0.00"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Input
-                id="notes"
-                name="notes"
-                value={newSale.notes || ''}
-                onChange={handleInputChange}
-                placeholder="Add notes..."
-                disabled={isSubmitting}
-              />
-            </div>
+      <div 
+        className={cn(
+          "fixed right-0 top-0 h-full transition-all duration-300 ease-in-out",
+          isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-16px)]"
+        )}
+      >
+        <Button
+          variant="outline"
+          size="icon"
+          className={cn(
+            "h-10 w-10 absolute -left-5 top-[68px] z-10 rounded-full bg-background border shadow-md hover:bg-accent",
+            !isSidebarOpen && "rotate-180"
+          )}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          <ChevronRight className="h-6 w-6" />
+        </Button>
+        <div className="w-[400px] border-l bg-background h-full overflow-y-auto">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4">New Sale Entry</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    name="date"
+                    type="date"
+                    value={dateToInputValue(newSale.date || new Date())}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="product">Product</Label>
+                  <Input
+                    id="product"
+                    name="product"
+                    value={newSale.product || ''}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Product name"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="order_number">Order Number</Label>
+                  <Input
+                    id="order_number"
+                    name="order_number"
+                    value={newSale.order_number || ''}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Order #"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="quantity">Quantity</Label>
+                  <Input
+                    id="quantity"
+                    name="quantity"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={newSale.quantity || ''}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="0"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="price">Price</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newSale.price || ''}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="0.00"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Input
+                    id="notes"
+                    name="notes"
+                    value={newSale.notes || ''}
+                    onChange={handleInputChange}
+                    placeholder="Add notes..."
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Entry'
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
-          <div className="mt-4 flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Entry'
-              )}
-            </Button>
-          </div>
-        </form>
-      </div>
-
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[120px]">Date</TableHead>
-              <TableHead className="w-[180px]">Product</TableHead>
-              <TableHead className="w-[120px]">Order Number</TableHead>
-              <TableHead className="text-right w-[100px]">Quantity</TableHead>
-              <TableHead className="text-right w-[120px]">Price</TableHead>
-              <TableHead className="text-right w-[120px]">Total</TableHead>
-              <TableHead className="w-[200px]">Notes</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    Loading sales data...
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : sales.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No sales entries yet
-                </TableCell>
-              </TableRow>
-            ) : (
-              sales.map((sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell>{sale.date}</TableCell>
-                  <TableCell>{sale.product}</TableCell>
-                  <TableCell>{sale.order_number}</TableCell>
-                  <TableCell className="text-right">{sale.quantity}</TableCell>
-                  <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
-                  <TableCell>{sale.notes}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        </div>
       </div>
     </div>
   );

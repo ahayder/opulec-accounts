@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,14 +12,15 @@ import {
   RocketIcon
 } from '@radix-ui/react-icons';
 import ThemeToggle from '../theme/ThemeToggle';
+import fullLogo from '@/assets/opulec-full-logo.png';
 
 const Sidebar = () => {
   const { logout } = useAuth();
 
   return (
     <div className="h-screen w-64 border-r bg-background flex flex-col flex-shrink-0">
-      <div className="h-16 border-b flex items-center justify-center px-6">
-        <h1 className="text-xl font-bold">Opulec Accounts</h1>
+      <div className="h-16 border-b flex items-center justify-center px-4">
+        <img src={fullLogo} alt="Opulec Logo" className="h-8 object-contain" />
       </div>
       
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">

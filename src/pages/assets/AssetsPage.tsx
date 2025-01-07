@@ -6,6 +6,7 @@ import { addAsset, getAssets, type AssetEntry } from '@/utils/database';
 import { Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+import { formatDateForInput } from "@/utils/dateFormat";
 import {
   Table,
   TableBody,
@@ -14,6 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
+  <div className="flex items-center gap-1">
+    <Label htmlFor={htmlFor}>{children}</Label>
+    <span className="text-red-500">*</span>
+  </div>
+);
 
 const AssetsPage = () => {
   const [assets, setAssets] = useState<AssetEntry[]>([]);
@@ -57,13 +65,46 @@ const AssetsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const requiredFields = {
+      name: 'Asset Name',
+      purchaseDate: 'Purchase Date',
+      cost: 'Cost',
+      usefulLife: 'Useful Life'
+    } as const;
+
+    const missingFields = Object.entries(requiredFields).filter(
+      ([key]) => !formData[key as keyof typeof requiredFields]
+    ).map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      toast.error(`Required fields missing: ${missingFields.join(', ')}`, {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(formData.cost) <= 0) {
+      toast.error('Cost must be greater than 0', {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(formData.usefulLife) <= 0) {
+      toast.error('Useful Life must be greater than 0', {
+        dismissible: true
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addAsset(formData);
       await loadAssets();
       setFormData({
         name: '',
-        purchaseDate: new Date().toISOString().split('T')[0],
+        purchaseDate: formatDateForInput(new Date()),
         cost: 0,
         usefulLife: 0,
         note: ''
@@ -179,7 +220,7 @@ const AssetsPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Asset Name</Label>
+                  <RequiredLabel htmlFor="name">Asset Name</RequiredLabel>
                   <Input
                     id="name"
                     type="text"
@@ -187,34 +228,39 @@ const AssetsPage = () => {
                     onChange={(e) => handleInputChange('name', e.target.value)}
                     placeholder="Enter asset name"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="purchaseDate">Purchase Date</Label>
+                  <RequiredLabel htmlFor="purchaseDate">Purchase Date</RequiredLabel>
                   <Input
                     id="purchaseDate"
                     type="date"
                     value={formData.purchaseDate}
                     onChange={(e) => handleInputChange('purchaseDate', e.target.value)}
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cost">Cost</Label>
+                  <RequiredLabel htmlFor="cost">Cost</RequiredLabel>
                   <Input
                     id="cost"
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={formData.cost}
                     onChange={(e) => handleInputChange('cost', parseFloat(e.target.value))}
                     placeholder="৳0.00"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="usefulLife">Useful Life (Years)</Label>
+                  <RequiredLabel htmlFor="usefulLife">Useful Life (Years)</RequiredLabel>
                   <Input
                     id="usefulLife"
                     type="number"
@@ -224,11 +270,12 @@ const AssetsPage = () => {
                     onChange={(e) => handleInputChange('usefulLife', parseInt(e.target.value))}
                     placeholder="1"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="note">Note</Label>
+                  <Label htmlFor="note">Note (Optional)</Label>
                   <Input
                     id="note"
                     type="text"

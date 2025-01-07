@@ -6,6 +6,7 @@ import { addInvestment, getInvestments, type InvestmentEntry } from '@/utils/dat
 import { Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+import { formatDateForInput } from "@/utils/dateFormat";
 import {
   Table,
   TableBody,
@@ -15,6 +16,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
+  <div className="flex items-center gap-1">
+    <Label htmlFor={htmlFor}>{children}</Label>
+    <span className="text-red-500">*</span>
+  </div>
+);
+
 const InvestmentsPage = () => {
   const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,7 +30,7 @@ const InvestmentsPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [formData, setFormData] = useState<Omit<InvestmentEntry, 'id'>>({
-    date: new Date().toISOString().split('T')[0],
+    date: formatDateForInput(new Date()),
     investor: '',
     amount: 0,
     note: ''
@@ -56,12 +64,37 @@ const InvestmentsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const requiredFields = {
+      date: 'Date',
+      investor: 'Investor',
+      amount: 'Amount'
+    } as const;
+
+    const missingFields = Object.entries(requiredFields).filter(
+      ([key]) => !formData[key as keyof typeof requiredFields]
+    ).map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      toast.error(`Required fields missing: ${missingFields.join(', ')}`, {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(formData.amount) <= 0) {
+      toast.error('Amount must be greater than 0', {
+        dismissible: true
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addInvestment(formData);
       await loadInvestments();
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: formatDateForInput(new Date()),
         investor: '',
         amount: 0,
         note: ''
@@ -158,18 +191,19 @@ const InvestmentsPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="date">Date</Label>
+                  <RequiredLabel htmlFor="date">Date</RequiredLabel>
                   <Input
                     id="date"
                     type="date"
                     value={formData.date}
                     onChange={(e) => handleInputChange('date', e.target.value)}
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="investor">Investor</Label>
+                  <RequiredLabel htmlFor="investor">Investor</RequiredLabel>
                   <Input
                     id="investor"
                     type="text"
@@ -177,23 +211,27 @@ const InvestmentsPage = () => {
                     onChange={(e) => handleInputChange('investor', e.target.value)}
                     placeholder="Enter investor name"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="amount">Amount</Label>
+                  <RequiredLabel htmlFor="amount">Amount</RequiredLabel>
                   <Input
                     id="amount"
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={formData.amount}
                     onChange={(e) => handleInputChange('amount', parseFloat(e.target.value))}
                     placeholder="৳0.00"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="note">Note</Label>
+                  <Label htmlFor="note">Note (Optional)</Label>
                   <Input
                     id="note"
                     type="text"

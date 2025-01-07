@@ -38,6 +38,14 @@ import {
 import { Switch } from "@/components/ui/switch";
 import dayjs from 'dayjs';
 
+// Add Required label component
+const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
+  <div className="flex items-center gap-1">
+    <Label htmlFor={htmlFor}>{children}</Label>
+    <span className="text-red-500">*</span>
+  </div>
+);
+
 interface PurchaseFormData {
   date: string;
   product: string;
@@ -136,8 +144,34 @@ const PurchasesPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.product || !formData.quantity || !formData.price) {
-      toast.error('Please fill in all required fields', {
+    // Enhanced validation
+    const requiredFields = {
+      date: 'Date',
+      product: 'Product',
+      quantity: 'Quantity',
+      price: 'Price'
+    } as const;
+
+    const missingFields = Object.entries(requiredFields).filter(
+      ([key]) => !formData[key as keyof typeof requiredFields]
+    ).map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      toast.error(`Required fields missing: ${missingFields.join(', ')}`, {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(formData.quantity) <= 0) {
+      toast.error('Quantity must be greater than 0', {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(formData.price) <= 0) {
+      toast.error('Price must be greater than 0', {
         dismissible: true
       });
       return;
@@ -156,7 +190,7 @@ const PurchasesPage = () => {
       await addPurchase(purchaseEntry);
       await loadData();
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: formatDate(new Date()),
         product: '',
         quantity: 0,
         price: 0,
@@ -331,19 +365,20 @@ const PurchasesPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="date">Date</Label>
+                  <RequiredLabel htmlFor="date">Date</RequiredLabel>
                   <Input
                     id="date"
+                    name="date"
                     type="date"
                     value={dateToInputValue(formData.date)}
-                    onChange={(e) => handleInputChange('date', formatDate(e.target.value))}
-                    className="w-full"
+                    onChange={(e) => handleInputChange('date', e.target.value)}
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="product">Product</Label>
+                  <RequiredLabel htmlFor="product">Product</RequiredLabel>
                   <CategorySelect
                     value={formData.product}
                     onValueChange={(value) => handleInputChange('product', value)}
@@ -355,31 +390,33 @@ const PurchasesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <RequiredLabel htmlFor="quantity">Quantity</RequiredLabel>
                   <Input
                     id="quantity"
+                    name="quantity"
                     type="number"
                     min="1"
                     step="1"
-                    value={formData.quantity}
-                    onChange={(e) => handleInputChange('quantity', e.target.value)}
+                    value={formData.quantity || ''}
+                    onChange={(e) => handleInputChange('quantity', parseFloat(e.target.value))}
                     placeholder="0"
-                    className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="price">Price</Label>
+                  <RequiredLabel htmlFor="price">Price</RequiredLabel>
                   <Input
                     id="price"
+                    name="price"
                     type="number"
-                    min="0"
+                    min="0.01"
                     step="0.01"
-                    value={formData.price}
+                    value={formData.price || ''}
                     onChange={(e) => handleInputChange('price', parseFloat(e.target.value))}
                     placeholder="৳0.00"
-                    className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
@@ -388,22 +425,22 @@ const PurchasesPage = () => {
                   <Label htmlFor="total">Total</Label>
                   <Input
                     id="total"
+                    name="total"
                     type="number"
-                    value={formData.total}
+                    value={formData.total || ''}
                     readOnly
                     className="w-full bg-muted"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="notes">Notes (Optional)</Label>
                   <Input
                     id="notes"
-                    type="text"
-                    value={formData.notes}
+                    name="notes"
+                    value={formData.notes || ''}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     placeholder="Add notes..."
-                    className="w-full"
                     disabled={isSubmitting}
                   />
                 </div>

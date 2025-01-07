@@ -6,6 +6,7 @@ import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type
 import { Loader2, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+import { formatDate, formatDateForInput } from "@/utils/dateFormat";
 import CategorySelect from '@/components/form/CategorySelect';
 import {
   Table,
@@ -35,6 +36,13 @@ interface ExpenseFormData {
   notes: string;
 }
 
+const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
+  <div className="flex items-center gap-1">
+    <Label htmlFor={htmlFor}>{children}</Label>
+    <span className="text-red-500">*</span>
+  </div>
+);
+
 const ExpensesPage = () => {
   const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -46,7 +54,7 @@ const ExpensesPage = () => {
   const [isRestoring, setIsRestoring] = useState(false);
   
   const [formData, setFormData] = useState<ExpenseFormData>({
-    date: new Date().toISOString().split('T')[0],
+    date: formatDateForInput(new Date()),
     category: '',
     description: '',
     amount: 0,
@@ -130,12 +138,38 @@ const ExpensesPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const requiredFields = {
+      date: 'Date',
+      category: 'Category',
+      description: 'Description',
+      amount: 'Amount'
+    } as const;
+
+    const missingFields = Object.entries(requiredFields).filter(
+      ([key]) => !formData[key as keyof typeof requiredFields]
+    ).map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      toast.error(`Required fields missing: ${missingFields.join(', ')}`, {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(formData.amount) <= 0) {
+      toast.error('Amount must be greater than 0', {
+        dismissible: true
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addExpense(formData);
       await loadData();
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: formatDateForInput(new Date()),
         category: '',
         description: '',
         amount: 0,
@@ -249,7 +283,7 @@ const ExpensesPage = () => {
               ) : (
                 expenses.map((expense) => (
                   <TableRow key={expense.id} className={cn(expense.isDeleted && "bg-muted/50")}>
-                    <TableCell>{expense.date}</TableCell>
+                    <TableCell>{formatDate(expense.date)}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>{expense.description}</TableCell>
                     <TableCell>৳{expense.amount.toFixed(2)}</TableCell>
@@ -307,18 +341,19 @@ const ExpensesPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="date">Date</Label>
+                  <RequiredLabel htmlFor="date">Date</RequiredLabel>
                   <Input
                     id="date"
                     type="date"
                     value={formData.date}
                     onChange={(e) => handleInputChange('date', e.target.value)}
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="category">Category</Label>
+                  <RequiredLabel htmlFor="category">Category</RequiredLabel>
                   <CategorySelect
                     value={formData.category}
                     onValueChange={(value) => handleInputChange('category', value)}
@@ -329,7 +364,7 @@ const ExpensesPage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <RequiredLabel htmlFor="description">Description</RequiredLabel>
                   <Input
                     id="description"
                     type="text"
@@ -337,23 +372,27 @@ const ExpensesPage = () => {
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     placeholder="Enter description"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="amount">Amount</Label>
+                  <RequiredLabel htmlFor="amount">Amount</RequiredLabel>
                   <Input
                     id="amount"
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={formData.amount}
                     onChange={(e) => handleInputChange('amount', parseFloat(e.target.value))}
                     placeholder="৳0.00"
                     className="w-full"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="notes">Notes (Optional)</Label>
                   <Input
                     id="notes"
                     type="text"

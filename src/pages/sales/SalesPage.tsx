@@ -61,6 +61,14 @@ const formatSaleDate = (date: string | FirestoreTimestamp): string => {
   return formatDate(new Date(date.seconds * 1000));
 };
 
+// Add a Required label component
+const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
+  <div className="flex items-center gap-1">
+    <Label htmlFor={htmlFor}>{children}</Label>
+    <span className="text-red-500">*</span>
+  </div>
+);
+
 const SalesPage = () => {
   const [sales, setSales] = useState<SaleEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,8 +130,35 @@ const SalesPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newSale.product || !newSale.order_number || !newSale.quantity || !newSale.price) {
-      toast.error('Please fill in all required fields', {
+    // Enhanced validation
+    const requiredFields = {
+      date: 'Date',
+      product: 'Product',
+      order_number: 'Order Number',
+      quantity: 'Quantity',
+      price: 'Price'
+    } as const;
+
+    const missingFields = Object.entries(requiredFields).filter(
+      ([key]) => !newSale[key as keyof typeof requiredFields]
+    ).map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      toast.error(`Required fields missing: ${missingFields.join(', ')}`, {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(newSale.quantity) <= 0) {
+      toast.error('Quantity must be greater than 0', {
+        dismissible: true
+      });
+      return;
+    }
+
+    if (Number(newSale.price) <= 0) {
+      toast.error('Price must be greater than 0', {
         dismissible: true
       });
       return;
@@ -133,8 +168,8 @@ const SalesPage = () => {
       setIsSubmitting(true);
       const saleEntry = {
         date: newSale.date || formatDate(new Date()),
-        product: newSale.product,
-        order_number: newSale.order_number,
+        product: newSale.product!,
+        order_number: newSale.order_number!,
         quantity: Number(newSale.quantity),
         price: Number(newSale.price),
         total: Number(newSale.quantity) * Number(newSale.price),
@@ -314,7 +349,7 @@ const SalesPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="date">Date</Label>
+                  <RequiredLabel htmlFor="date">Date</RequiredLabel>
                   <Input
                     id="date"
                     name="date"
@@ -327,7 +362,7 @@ const SalesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="product">Product</Label>
+                  <RequiredLabel htmlFor="product">Product</RequiredLabel>
                   <CategorySelect
                     value={newSale.product || ''}
                     onValueChange={(value) => setNewSale(prev => ({ ...prev, product: value }))}
@@ -338,7 +373,7 @@ const SalesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="order_number">Order Number</Label>
+                  <RequiredLabel htmlFor="order_number">Order Number</RequiredLabel>
                   <Input
                     id="order_number"
                     name="order_number"
@@ -351,7 +386,7 @@ const SalesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <RequiredLabel htmlFor="quantity">Quantity</RequiredLabel>
                   <Input
                     id="quantity"
                     name="quantity"
@@ -367,7 +402,7 @@ const SalesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="price">Price</Label>
+                  <RequiredLabel htmlFor="price">Price</RequiredLabel>
                   <Input
                     id="price"
                     name="price"
@@ -383,7 +418,7 @@ const SalesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="total">Total</Label>
+                  <RequiredLabel htmlFor="total">Total</RequiredLabel>
                   <Input
                     id="total"
                     name="total"
@@ -395,7 +430,7 @@ const SalesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="notes">Notes (Optional)</Label>
                   <Input
                     id="notes"
                     name="notes"
@@ -408,7 +443,10 @@ const SalesPage = () => {
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting}>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

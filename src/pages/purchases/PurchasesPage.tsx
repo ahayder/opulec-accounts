@@ -15,13 +15,7 @@ import {
   addPurchase,
   deletePurchase,
   getProductCategories,
-  getSupplierCategories,
-  getColorCategories,
-  getDialColorCategories,
   addProductCategory,
-  addSupplierCategory,
-  addColorCategory,
-  addDialColorCategory,
   getDeletedPurchases,
   restorePurchase,
   type PurchaseEntry,
@@ -30,9 +24,7 @@ import {
 import { Loader2, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CategorySelect from '@/components/form/CategorySelect';
-import GenderSelect from '@/components/form/GenderSelect';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,8 +35,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import dayjs from 'dayjs';
 import { Switch } from "@/components/ui/switch";
+import dayjs from 'dayjs';
 
 interface PurchaseFormData {
   date: string;
@@ -53,18 +45,21 @@ interface PurchaseFormData {
   price: number;
   total: number;
   notes: string;
-  supplier: string;
-  gender: string;
-  color: string;
-  dialColor: string;
 }
 
-const formatDate = (date: string): string => {
+// Helper function to format date for display
+const formatDate = (date: Date | string): string => {
   return dayjs(date).format('DD-MMM-YYYY');
+};
+
+// Helper function to format date for input field
+const dateToInputValue = (date: Date | string): string => {
+  return dayjs(date).format('YYYY-MM-DD');
 };
 
 const PurchasesPage = () => {
   const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -72,22 +67,13 @@ const PurchasesPage = () => {
   const [showDeleted, setShowDeleted] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   
-  const [productCategories, setProductCategories] = useState<Category[]>([]);
-  const [supplierCategories, setSupplierCategories] = useState<Category[]>([]);
-  const [colorCategories, setColorCategories] = useState<Category[]>([]);
-  const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
-  
   const [formData, setFormData] = useState<PurchaseFormData>({
-    date: new Date().toISOString().split('T')[0],
+    date: formatDate(new Date()),
     product: '',
     quantity: 0,
     price: 0,
     total: 0,
-    notes: '',
-    supplier: '',
-    gender: '',
-    color: '',
-    dialColor: ''
+    notes: ''
   });
 
   useEffect(() => {
@@ -99,28 +85,16 @@ const PurchasesPage = () => {
       setIsLoading(true);
       const [
         purchasesData,
-        productCats,
-        supplierCats,
-        colorCats,
-        dialColorCats
+        productCats
       ] = await Promise.all([
         showDeleted ? getDeletedPurchases() : getPurchases(),
-        getProductCategories(),
-        getSupplierCategories(),
-        getColorCategories(),
-        getDialColorCategories()
+        getProductCategories()
       ]);
       console.log('Loaded categories:', {
-        products: productCats,
-        suppliers: supplierCats,
-        colors: colorCats,
-        dialColors: dialColorCats
+        products: productCats
       });
       setPurchases(purchasesData);
       setProductCategories(productCats);
-      setSupplierCategories(supplierCats);
-      setColorCategories(colorCats);
-      setDialColorCategories(dialColorCats);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load inventory data', {
@@ -159,45 +133,6 @@ const PurchasesPage = () => {
     }
   };
 
-  const handleAddSupplier = async (name: string) => {
-    try {
-      await addSupplierCategory({ name });
-      const categories = await getSupplierCategories();
-      setSupplierCategories(categories);
-    } catch (error) {
-      console.error('Error adding supplier category:', error);
-      toast.error('Failed to add supplier', {
-        dismissible: true
-      });
-    }
-  };
-
-  const handleAddColor = async (name: string) => {
-    try {
-      await addColorCategory({ name });
-      const categories = await getColorCategories();
-      setColorCategories(categories);
-    } catch (error) {
-      console.error('Error adding color category:', error);
-      toast.error('Failed to add color', {
-        dismissible: true
-      });
-    }
-  };
-
-  const handleAddDialColor = async (name: string) => {
-    try {
-      await addDialColorCategory({ name });
-      const categories = await getDialColorCategories();
-      setDialColorCategories(categories);
-    } catch (error) {
-      console.error('Error adding dial color category:', error);
-      toast.error('Failed to add dial color', {
-        dismissible: true
-      });
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -226,11 +161,7 @@ const PurchasesPage = () => {
         quantity: 0,
         price: 0,
         total: 0,
-        notes: '',
-        supplier: '',
-        gender: '',
-        color: '',
-        dialColor: ''
+        notes: ''
       });
       toast.success('Purchase added successfully', {
         dismissible: true
@@ -297,103 +228,84 @@ const PurchasesPage = () => {
             <h1 className="text-2xl font-bold">Purchases</h1>
             <p className="text-muted-foreground">Track and manage your purchase transactions</p>
           </div>
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="show-deleted" className="text-sm">
+              Show Deleted Records
+            </Label>
+            <Switch
+              id="show-deleted"
+              checked={showDeleted}
+              onCheckedChange={setShowDeleted}
+            />
+          </div>
         </div>
 
-        <Tabs defaultValue="purchases" className="mt-4">
-          <TabsList>
-            <TabsTrigger value="purchases">Purchase History</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="purchases" className="border rounded-lg mt-4">
-            <div className="flex justify-end mb-4">
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="show-deleted" className="text-sm">
-                  Show Deleted Records
-                </Label>
-                <Switch
-                  id="show-deleted"
-                  checked={showDeleted}
-                  onCheckedChange={setShowDeleted}
-                />
-              </div>
-            </div>
-
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[120px]">Date</TableHead>
-                    <TableHead className="w-[200px]">Product</TableHead>
-                    <TableHead className="w-[150px]">Supplier</TableHead>
-                    <TableHead className="w-[100px]">Gender</TableHead>
-                    <TableHead className="w-[100px]">Color</TableHead>
-                    <TableHead className="w-[100px]">Dial Color</TableHead>
-                    <TableHead className="text-right w-[100px]">Quantity</TableHead>
-                    <TableHead className="text-right w-[120px]">Price</TableHead>
-                    <TableHead className="text-right w-[120px]">Total</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+        <div className="border rounded-lg mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Date</TableHead>
+                <TableHead className="w-[180px]">Product</TableHead>
+                <TableHead className="text-right w-[100px]">Quantity</TableHead>
+                <TableHead className="text-right w-[120px]">Price</TableHead>
+                <TableHead className="text-right w-[120px]">Total</TableHead>
+                <TableHead className="w-[200px]">Notes</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Loading purchases data...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : purchases.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    {showDeleted ? 'No deleted purchases entries' : 'No purchases entries yet'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                purchases.map((purchase) => (
+                  <TableRow key={purchase.id} className={cn(purchase.isDeleted && "bg-muted/50")}>
+                    <TableCell>{formatDate(purchase.date)}</TableCell>
+                    <TableCell>{purchase.product}</TableCell>
+                    <TableCell className="text-right">{purchase.quantity}</TableCell>
+                    <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
+                    <TableCell>{purchase.notes}</TableCell>
+                    <TableCell>
+                      {showDeleted ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRestore(purchase)}
+                          className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
+                          disabled={isRestoring}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPurchaseToDelete(purchase)}
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8">
-                        <div className="flex items-center justify-center">
-                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          Loading purchases data...
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : purchases.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground">
-                        No purchase entries yet
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    purchases.map((purchase) => (
-                      <TableRow key={purchase.id}>
-                        <TableCell>{purchase.date}</TableCell>
-                        <TableCell>{purchase.product}</TableCell>
-                        <TableCell>{purchase.supplier}</TableCell>
-                        <TableCell>{purchase.gender}</TableCell>
-                        <TableCell>{purchase.color}</TableCell>
-                        <TableCell>{purchase.dialColor}</TableCell>
-                        <TableCell className="text-right">{purchase.quantity}</TableCell>
-                        <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
-                        <TableCell>{purchase.notes}</TableCell>
-                        <TableCell>
-                          {showDeleted ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRestore(purchase)}
-                              className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
-                              disabled={isRestoring}
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setPurchaseToDelete(purchase)}
-                              className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-        </Tabs>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <div 
@@ -423,8 +335,8 @@ const PurchasesPage = () => {
                   <Input
                     id="date"
                     type="date"
-                    value={formData.date}
-                    onChange={(e) => handleInputChange('date', e.target.value)}
+                    value={dateToInputValue(formData.date)}
+                    onChange={(e) => handleInputChange('date', formatDate(e.target.value))}
                     className="w-full"
                     disabled={isSubmitting}
                   />
@@ -443,51 +355,6 @@ const PurchasesPage = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="supplier">Supplier</Label>
-                  <CategorySelect
-                    value={formData.supplier}
-                    onValueChange={(value) => handleInputChange('supplier', value)}
-                    categories={supplierCategories}
-                    onAddCategory={handleAddSupplier}
-                    placeholder="Select supplier"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="color">Color</Label>
-                  <CategorySelect
-                    value={formData.color}
-                    onValueChange={(value) => handleInputChange('color', value)}
-                    categories={colorCategories}
-                    onAddCategory={handleAddColor}
-                    placeholder="Select color"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="dialColor">Dial Color</Label>
-                  <CategorySelect
-                    value={formData.dialColor}
-                    onValueChange={(value) => handleInputChange('dialColor', value)}
-                    categories={dialColorCategories}
-                    onAddCategory={handleAddDialColor}
-                    placeholder="Select dial color"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="gender">Gender</Label>
-                  <GenderSelect
-                    value={formData.gender}
-                    onValueChange={(value) => handleInputChange('gender', value)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
                   <Label htmlFor="quantity">Quantity</Label>
                   <Input
                     id="quantity"
@@ -495,7 +362,7 @@ const PurchasesPage = () => {
                     min="1"
                     step="1"
                     value={formData.quantity}
-                    onChange={(e) => handleInputChange('quantity', parseInt(e.target.value))}
+                    onChange={(e) => handleInputChange('quantity', e.target.value)}
                     placeholder="0"
                     className="w-full"
                     disabled={isSubmitting}

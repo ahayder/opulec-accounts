@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { Loader2 } from "lucide-react";
 import dayjs from 'dayjs';
-import { getSales, getPurchases, getExpenses, getInvestments } from '@/utils/database';
+import { getSales, getPurchases } from '@/utils/database';
 
 const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -12,8 +12,6 @@ const DashboardPage = () => {
   const [dashboardData, setDashboardData] = useState<{
     sales: number;
     purchases: number;
-    expenses: number;
-    investments: number;
     currentStock: {
       [key: string]: {
         product: string;
@@ -24,8 +22,6 @@ const DashboardPage = () => {
   }>({
     sales: 0,
     purchases: 0,
-    expenses: 0,
-    investments: 0,
     currentStock: {}
   });
 
@@ -36,11 +32,9 @@ const DashboardPage = () => {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      const [sales, purchases, expenses, investments] = await Promise.all([
+      const [sales, purchases] = await Promise.all([
         getSales(),
-        getPurchases(),
-        getExpenses(),
-        getInvestments()
+        getPurchases()
       ]);
 
       // Filter data based on date range
@@ -55,16 +49,6 @@ const DashboardPage = () => {
       const filteredPurchases = purchases.filter(purchase => {
         const purchaseDate = dayjs(purchase.date, 'DD-MMM-YYYY');
         return purchaseDate.isAfter(start) && purchaseDate.isBefore(end);
-      });
-
-      const filteredExpenses = expenses.filter(expense => {
-        const expenseDate = dayjs(expense.date, 'DD-MMM-YYYY');
-        return expenseDate.isAfter(start) && expenseDate.isBefore(end);
-      });
-
-      const filteredInvestments = investments.filter(investment => {
-        const investmentDate = dayjs(investment.date, 'DD-MMM-YYYY');
-        return investmentDate.isAfter(start) && investmentDate.isBefore(end);
       });
 
       // Calculate current stock
@@ -99,14 +83,10 @@ const DashboardPage = () => {
       // Calculate totals
       const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
       const totalPurchases = filteredPurchases.reduce((sum, purchase) => sum + purchase.total, 0);
-      const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const totalInvestments = filteredInvestments.reduce((sum, investment) => sum + investment.amount, 0);
 
       setDashboardData({
         sales: totalSales,
         purchases: totalPurchases,
-        expenses: totalExpenses,
-        investments: totalInvestments,
         currentStock
       });
     } catch (error) {
@@ -130,7 +110,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
@@ -146,24 +126,6 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">৳{dashboardData.purchases.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{dashboardData.expenses.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Investments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{dashboardData.investments.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   HomeIcon, 
-  MinusIcon, 
+  MinusIcon,
   BackpackIcon, 
   GearIcon,
   ExitIcon,

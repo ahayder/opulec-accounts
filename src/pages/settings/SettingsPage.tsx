@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getExpenseCategories, 
   getProductCategories, 
-  getSupplierCategories, 
-  getColorCategories, 
-  getDialColorCategories,
-  type ExpenseCategory,
   type Category
 } from '@/utils/database';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,17 +25,12 @@ import { cn } from "@/lib/utils";
 interface CategoryToDelete {
   id: string;
   name: string;
-  type: 'expense' | 'product' | 'supplier' | 'color' | 'dialColor';
+  type: 'product';
 }
 
 const SettingsPage = () => {
-  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [productCategories, setProductCategories] = useState<Category[]>([]);
-  const [supplierCategories, setSupplierCategories] = useState<Category[]>([]);
-  const [colorCategories, setColorCategories] = useState<Category[]>([]);
-  const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryToDelete | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     loadAllCategories();
@@ -48,42 +38,23 @@ const SettingsPage = () => {
 
   const loadAllCategories = async () => {
     try {
-      const [expenses, products, suppliers, colors, dialColors] = await Promise.all([
-        getExpenseCategories(),
-        getProductCategories(),
-        getSupplierCategories(),
-        getColorCategories(),
-        getDialColorCategories()
-      ]);
-
-      setExpenseCategories(expenses);
+      const products = await getProductCategories();
       setProductCategories(products);
-      setSupplierCategories(suppliers);
-      setColorCategories(colors);
-      setDialColorCategories(dialColors);
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Failed to load categories', {
         dismissible: true
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const getCategoryCollectionName = (type: CategoryToDelete['type']) => {
-    switch (type) {
-      case 'expense': return 'expenseCategories';
-      case 'product': return 'productCategories';
-      case 'supplier': return 'supplierCategories';
-      case 'color': return 'colorCategories';
-      case 'dialColor': return 'dialColorCategories';
-    }
+  const getCategoryCollectionName = () => {
+    return 'productCategories';
   };
 
   const handleDeleteCategory = async (category: CategoryToDelete) => {
     try {
-      const collectionName = getCategoryCollectionName(category.type);
+      const collectionName = getCategoryCollectionName();
       await deleteDoc(doc(db, collectionName, category.id));
       await loadAllCategories();
       setCategoryToDelete(null);
@@ -106,7 +77,7 @@ const SettingsPage = () => {
     type 
   }: { 
     title: string; 
-    categories: (Category | ExpenseCategory)[]; 
+    categories: Category[]; 
     type: CategoryToDelete['type'];
   }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -173,29 +144,9 @@ const SettingsPage = () => {
 
       <div className="grid gap-4">
         <CategoryList 
-          title="Manage Expense Categories" 
-          categories={expenseCategories} 
-          type="expense" 
-        />
-        <CategoryList 
           title="Manage Product Categories" 
           categories={productCategories} 
           type="product" 
-        />
-        <CategoryList 
-          title="Manage Supplier Categories" 
-          categories={supplierCategories} 
-          type="supplier" 
-        />
-        <CategoryList 
-          title="Manage Color Categories" 
-          categories={colorCategories} 
-          type="color" 
-        />
-        <CategoryList 
-          title="Manage Dial Color Categories" 
-          categories={dialColorCategories} 
-          type="dialColor" 
         />
       </div>
 

@@ -18,8 +18,6 @@ import {
   restoreSale,
   type SaleEntry,
   getProductCategories,
-  getColorCategories,
-  getDialColorCategories,
   type Category
 } from '@/utils/database';
 import { toast } from 'sonner';
@@ -27,7 +25,6 @@ import { Loader2, ChevronRight, Trash2, RotateCcw } from "lucide-react";
 import dayjs from 'dayjs';
 import { cn } from "@/lib/utils";
 import CategorySelect from '@/components/form/CategorySelect';
-import GenderSelect from '@/components/form/GenderSelect';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,22 +43,22 @@ type FirestoreTimestamp = {
   nanoseconds: number;
 };
 
-// Helper function to format date as DD-MMM-YYYY
+// Helper function to format date for display
 const formatDate = (date: Date | string): string => {
   return dayjs(date).format('DD-MMM-YYYY');
 };
 
-// Helper function to convert date to YYYY-MM-DD for input field
+// Helper function to format date for input field
 const dateToInputValue = (date: Date | string): string => {
   return dayjs(date).format('YYYY-MM-DD');
 };
 
-// Helper function to handle Firestore timestamp or string date
+// Helper function to format sale date
 const formatSaleDate = (date: string | FirestoreTimestamp): string => {
-  if (typeof date === 'object' && 'seconds' in date) {
-    return formatDate(new Date(date.seconds * 1000));
+  if (typeof date === 'string') {
+    return date;
   }
-  return date;
+  return formatDate(new Date(date.seconds * 1000));
 };
 
 const SalesPage = () => {
@@ -70,8 +67,6 @@ const SalesPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [productCategories, setProductCategories] = useState<Category[]>([]);
-  const [colorCategories, setColorCategories] = useState<Category[]>([]);
-  const [dialColorCategories, setDialColorCategories] = useState<Category[]>([]);
   const [saleToDelete, setSaleToDelete] = useState<SaleEntry | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -87,16 +82,12 @@ const SalesPage = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [salesData, productCats, colorCats, dialColorCats] = await Promise.all([
+      const [salesData, productCats] = await Promise.all([
         showDeleted ? getDeletedSales() : getSales(),
-        getProductCategories(),
-        getColorCategories(),
-        getDialColorCategories()
+        getProductCategories()
       ]);
       setSales(salesData);
       setProductCategories(productCats);
-      setColorCategories(colorCats);
-      setDialColorCategories(dialColorCats);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load sales data', {
@@ -147,10 +138,7 @@ const SalesPage = () => {
         quantity: Number(newSale.quantity),
         price: Number(newSale.price),
         total: Number(newSale.quantity) * Number(newSale.price),
-        notes: newSale.notes || '',
-        gender: newSale.gender || '',
-        color: newSale.color || '',
-        dialColor: newSale.dialColor || ''
+        notes: newSale.notes || ''
       };
       
       await addSale(saleEntry);
@@ -240,9 +228,6 @@ const SalesPage = () => {
                 <TableHead className="w-[120px]">Date</TableHead>
                 <TableHead className="w-[180px]">Product</TableHead>
                 <TableHead className="w-[120px]">Order Number</TableHead>
-                <TableHead className="w-[100px]">Gender</TableHead>
-                <TableHead className="w-[100px]">Color</TableHead>
-                <TableHead className="w-[100px]">Dial Color</TableHead>
                 <TableHead className="text-right w-[100px]">Quantity</TableHead>
                 <TableHead className="text-right w-[120px]">Price</TableHead>
                 <TableHead className="text-right w-[120px]">Total</TableHead>
@@ -272,9 +257,6 @@ const SalesPage = () => {
                     <TableCell>{formatSaleDate(sale.date)}</TableCell>
                     <TableCell>{sale.product}</TableCell>
                     <TableCell>{sale.order_number}</TableCell>
-                    <TableCell>{sale.gender}</TableCell>
-                    <TableCell>{sale.color}</TableCell>
-                    <TableCell>{sale.dialColor}</TableCell>
                     <TableCell className="text-right">{sale.quantity}</TableCell>
                     <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
                     <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
@@ -364,37 +346,6 @@ const SalesPage = () => {
                     onChange={handleInputChange}
                     required
                     placeholder="Order #"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="gender">Gender</Label>
-                  <GenderSelect
-                    value={newSale.gender || ''}
-                    onValueChange={(value) => setNewSale(prev => ({ ...prev, gender: value }))}
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="color">Color</Label>
-                  <CategorySelect
-                    value={newSale.color || ''}
-                    onValueChange={(value) => setNewSale(prev => ({ ...prev, color: value }))}
-                    categories={colorCategories}
-                    placeholder="Select color"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="dialColor">Dial Color</Label>
-                  <CategorySelect
-                    value={newSale.dialColor || ''}
-                    onValueChange={(value) => setNewSale(prev => ({ ...prev, dialColor: value }))}
-                    categories={dialColorCategories}
-                    placeholder="Select dial color"
                     disabled={isSubmitting}
                   />
                 </div>

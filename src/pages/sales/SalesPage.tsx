@@ -228,9 +228,9 @@ const SalesPage = () => {
                 <TableHead className="w-[120px]">Date</TableHead>
                 <TableHead className="w-[180px]">Product</TableHead>
                 <TableHead className="w-[120px]">Order Number</TableHead>
-                <TableHead className="text-right w-[100px]">Quantity</TableHead>
-                <TableHead className="text-right w-[120px]">Price</TableHead>
-                <TableHead className="text-right w-[120px]">Total</TableHead>
+                <TableHead className="w-[100px]">Quantity</TableHead>
+                <TableHead className="w-[120px]">Price</TableHead>
+                <TableHead className="w-[120px]">Total</TableHead>
                 <TableHead className="w-[200px]">Notes</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -238,7 +238,7 @@ const SalesPage = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading sales data...
@@ -247,7 +247,7 @@ const SalesPage = () => {
                 </TableRow>
               ) : sales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     {showDeleted ? 'No deleted sales entries' : 'No sales entries yet'}
                   </TableCell>
                 </TableRow>
@@ -257,9 +257,9 @@ const SalesPage = () => {
                     <TableCell>{formatSaleDate(sale.date)}</TableCell>
                     <TableCell>{sale.product}</TableCell>
                     <TableCell>{sale.order_number}</TableCell>
-                    <TableCell className="text-right">{sale.quantity}</TableCell>
-                    <TableCell className="text-right">৳{sale.price.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">৳{sale.total.toFixed(2)}</TableCell>
+                    <TableCell>{sale.quantity}</TableCell>
+                    <TableCell>৳{sale.price.toFixed(2)}</TableCell>
+                    <TableCell>৳{sale.total.toFixed(2)}</TableCell>
                     <TableCell>{sale.notes}</TableCell>
                     <TableCell>
                       {showDeleted ? (

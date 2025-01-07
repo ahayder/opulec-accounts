@@ -246,9 +246,9 @@ const PurchasesPage = () => {
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
                 <TableHead className="w-[180px]">Product</TableHead>
-                <TableHead className="text-right w-[100px]">Quantity</TableHead>
-                <TableHead className="text-right w-[120px]">Price</TableHead>
-                <TableHead className="text-right w-[120px]">Total</TableHead>
+                <TableHead className="w-[100px]">Quantity</TableHead>
+                <TableHead className="w-[120px]">Price</TableHead>
+                <TableHead className="w-[120px]">Total</TableHead>
                 <TableHead className="w-[200px]">Notes</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -274,9 +274,9 @@ const PurchasesPage = () => {
                   <TableRow key={purchase.id} className={cn(purchase.isDeleted && "bg-muted/50")}>
                     <TableCell>{formatDate(purchase.date)}</TableCell>
                     <TableCell>{purchase.product}</TableCell>
-                    <TableCell className="text-right">{purchase.quantity}</TableCell>
-                    <TableCell className="text-right">৳{purchase.price.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">৳{purchase.total.toFixed(2)}</TableCell>
+                    <TableCell>{purchase.quantity}</TableCell>
+                    <TableCell>৳{purchase.price.toFixed(2)}</TableCell>
+                    <TableCell>৳{purchase.total.toFixed(2)}</TableCell>
                     <TableCell>{purchase.notes}</TableCell>
                     <TableCell>
                       {showDeleted ? (

@@ -225,7 +225,7 @@ const ExpensesPage = () => {
                 <TableHead className="w-[120px]">Date</TableHead>
                 <TableHead className="w-[150px]">Category</TableHead>
                 <TableHead className="w-[200px]">Description</TableHead>
-                <TableHead className="text-right w-[120px]">Amount</TableHead>
+                <TableHead className="w-[120px]">Amount</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -252,7 +252,7 @@ const ExpensesPage = () => {
                     <TableCell>{expense.date}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell>{expense.description}</TableCell>
-                    <TableCell className="text-right">৳{expense.amount.toFixed(2)}</TableCell>
+                    <TableCell>৳{expense.amount.toFixed(2)}</TableCell>
                     <TableCell>{expense.notes}</TableCell>
                     <TableCell>
                       {showDeleted ? (

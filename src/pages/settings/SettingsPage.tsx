@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getProductCategories, 
-  type Category
+  getProductCategories,
+  getExpenseCategories,
+  type Category,
+  type ExpenseCategory
 } from '@/utils/database';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,11 +27,12 @@ import { cn } from "@/lib/utils";
 interface CategoryToDelete {
   id: string;
   name: string;
-  type: 'product';
+  type: 'product' | 'expense';
 }
 
 const SettingsPage = () => {
   const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryToDelete | null>(null);
 
   useEffect(() => {
@@ -38,8 +41,12 @@ const SettingsPage = () => {
 
   const loadAllCategories = async () => {
     try {
-      const products = await getProductCategories();
+      const [products, expenses] = await Promise.all([
+        getProductCategories(),
+        getExpenseCategories()
+      ]);
       setProductCategories(products);
+      setExpenseCategories(expenses);
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Failed to load categories', {
@@ -48,13 +55,20 @@ const SettingsPage = () => {
     }
   };
 
-  const getCategoryCollectionName = () => {
-    return 'productCategories';
+  const getCategoryCollectionName = (type: CategoryToDelete['type']) => {
+    switch (type) {
+      case 'product':
+        return 'productCategories';
+      case 'expense':
+        return 'expenseCategories';
+      default:
+        return 'productCategories';
+    }
   };
 
   const handleDeleteCategory = async (category: CategoryToDelete) => {
     try {
-      const collectionName = getCategoryCollectionName();
+      const collectionName = getCategoryCollectionName(category.type);
       await deleteDoc(doc(db, collectionName, category.id));
       await loadAllCategories();
       setCategoryToDelete(null);
@@ -147,6 +161,11 @@ const SettingsPage = () => {
           title="Manage Product Categories" 
           categories={productCategories} 
           type="product" 
+        />
+        <CategoryList 
+          title="Manage Expense Categories" 
+          categories={expenseCategories} 
+          type="expense" 
         />
       </div>
 

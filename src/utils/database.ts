@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, writeBatch, where, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, updateDoc, doc, where, getDoc } from 'firebase/firestore';
 import { db } from '@/main';
 import dayjs from 'dayjs';
 
@@ -86,21 +86,6 @@ const formatDate = (date: Date): string => {
   return dayjs(date).format('DD-MMM-YYYY');
 };
 
-// Helper function to create inventory key
-const createInventoryKey = (gender: string, color: string, dialColor: string): string => {
-  return `${gender || 'none'}|${color || 'none'}|${dialColor || 'none'}`;
-};
-
-// Helper function to parse inventory key
-const parseInventoryKey = (key: string): { gender: string; color: string; dialColor: string } => {
-  const [gender, color, dialColor] = key.split('|');
-  return {
-    gender: gender === 'none' ? '' : gender,
-    color: color === 'none' ? '' : color,
-    dialColor: dialColor === 'none' ? '' : dialColor
-  };
-};
-
 // Sales functions
 export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
   try {
@@ -111,41 +96,16 @@ export const addSale = async (sale: Omit<SaleEntry, 'id'>) => {
       throw new Error('Product name is required');
     }
 
-    // Check inventory before proceeding
-    const inventoryRef = collection(db, 'inventory');
-    const q = query(inventoryRef, where('product', '==', normalizedProduct));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      throw new Error(`Product "${normalizedProduct}" not found in inventory`);
-    }
-
-    const inventoryDoc = querySnapshot.docs[0];
-    const currentQuantity = inventoryDoc.data().quantity;
-
-    if (currentQuantity < sale.quantity) {
-      throw new Error(`Insufficient inventory for "${normalizedProduct}". Available: ${currentQuantity}, Requested: ${sale.quantity}`);
-    }
-
-    // Start a batch write
-    const batch = writeBatch(db);
-
     // Add the sale document
-    const saleRef = doc(collection(db, 'sales'));
-    batch.set(saleRef, {
+    const docRef = await addDoc(collection(db, 'sales'), {
       ...sale,
       product: normalizedProduct,
-      date: sale.date, // Store date as string
+      date: sale.date,
       createdAt: Timestamp.now(),
       isDeleted: false
     });
-
-    // Update inventory
-    await updateInventory(normalizedProduct, -sale.quantity);
-
-    // Commit the batch
-    await batch.commit();
-    return saleRef.id;
+    
+    return docRef.id;
   } catch (error) {
     console.error('Error adding sale:', error);
     throw error;
@@ -225,33 +185,16 @@ export const addPurchase = async (purchase: Omit<PurchaseEntry, 'id'>) => {
       throw new Error('Product name is required');
     }
 
-    // Start a batch write
-    const batch = writeBatch(db);
-
     // Add the purchase document
-    const purchaseRef = doc(collection(db, 'purchases'));
-    batch.set(purchaseRef, {
+    const docRef = await addDoc(collection(db, 'purchases'), {
       ...purchase,
       product: normalizedProduct,
       date: purchase.date,
       createdAt: Timestamp.now(),
       isDeleted: false
     });
-
-    // Update inventory with gender, color, and dialColor
-    await updateInventory(
-      normalizedProduct,
-      purchase.quantity,
-      purchase.gender,
-      purchase.color,
-      purchase.dialColor
-    );
-
-    // Commit the batch
-    await batch.commit();
     
-    // Return the new purchase ID
-    return purchaseRef.id;
+    return docRef.id;
   } catch (error) {
     console.error('Error adding purchase:', error);
     throw error;
@@ -464,71 +407,6 @@ export const getInvestments = async (): Promise<InvestmentEntry[]> => {
   }
 };
 
-// Inventory functions
-export const updateInventory = async (
-  product: string,
-  quantity: number,
-  gender: string = '',
-  color: string = '',
-  dialColor: string = ''
-): Promise<void> => {
-  try {
-    const inventoryRef = collection(db, 'inventory');
-    const q = query(inventoryRef, where('product', '==', product));
-    const querySnapshot = await getDocs(q);
-    const key = createInventoryKey(gender, color, dialColor);
-
-    if (querySnapshot.empty) {
-      // Create new inventory entry
-      await addDoc(inventoryRef, {
-        product,
-        quantities: { [key]: quantity },
-        lastUpdated: Timestamp.now()
-      });
-    } else {
-      // Update existing inventory entry
-      const docRef = querySnapshot.docs[0].ref;
-      const currentData = querySnapshot.docs[0].data();
-      const currentQuantities = currentData.quantities || {};
-      const newQuantity = (currentQuantities[key] || 0) + quantity;
-
-      if (newQuantity === 0) {
-        // Remove the key if quantity becomes 0
-        delete currentQuantities[key];
-      } else {
-        currentQuantities[key] = newQuantity;
-      }
-
-      await updateDoc(docRef, {
-        quantities: currentQuantities,
-        lastUpdated: Timestamp.now()
-      });
-    }
-  } catch (error) {
-    console.error('Error updating inventory:', error);
-    throw error;
-  }
-};
-
-export const getInventory = async (): Promise<InventoryEntry[]> => {
-  try {
-    const q = query(collection(db, 'inventory'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        product: data.product,
-        quantities: data.quantities || {},
-        lastUpdated: data.lastUpdated
-      } as InventoryEntry;
-    });
-  } catch (error) {
-    console.error('Error getting inventory:', error);
-    throw error;
-  }
-};
-
 // Product Categories functions
 export const addProductCategory = async (category: Omit<Category, 'id' | 'createdAt'>) => {
   try {
@@ -647,30 +525,18 @@ export const getDialColorCategories = async (): Promise<Category[]> => {
 
 export const deleteSale = async (saleId: string): Promise<void> => {
   try {
-    // Get the sale data first to update inventory
     const saleRef = doc(db, 'sales', saleId);
     const saleDoc = await getDoc(saleRef);
     
     if (!saleDoc.exists()) {
       throw new Error('Sale not found');
     }
-
-    const saleData = saleDoc.data();
     
-    // Start a batch write
-    const batch = writeBatch(db);
-
     // Soft delete the sale document
-    batch.update(saleRef, {
+    await updateDoc(saleRef, {
       isDeleted: true,
       deletedAt: Timestamp.now()
     });
-
-    // Update inventory (add back the quantity)
-    await updateInventory(saleData.product, saleData.quantity);
-
-    // Commit the batch
-    await batch.commit();
   } catch (error) {
     console.error('Error deleting sale:', error);
     throw error;
@@ -685,29 +551,12 @@ export const deletePurchase = async (purchaseId: string): Promise<void> => {
     if (!purchaseDoc.exists()) {
       throw new Error('Purchase not found');
     }
-
-    const purchaseData = purchaseDoc.data();
     
-    // Start a batch write
-    const batch = writeBatch(db);
-
     // Soft delete the purchase document
-    batch.update(purchaseRef, {
+    await updateDoc(purchaseRef, {
       isDeleted: true,
       deletedAt: Timestamp.now()
     });
-
-    // Update inventory with negative quantity
-    await updateInventory(
-      purchaseData.product,
-      -purchaseData.quantity,
-      purchaseData.gender,
-      purchaseData.color,
-      purchaseData.dialColor
-    );
-
-    // Commit the batch
-    await batch.commit();
   } catch (error) {
     console.error('Error deleting purchase:', error);
     throw error;
@@ -784,24 +633,13 @@ export const restoreSale = async (saleId: string): Promise<void> => {
     if (!saleDoc.exists()) {
       throw new Error('Sale not found');
     }
-
-    const saleData = saleDoc.data();
     
-    // Start a batch write
-    const batch = writeBatch(db);
-
     // Restore the sale document
-    batch.update(saleRef, {
+    await updateDoc(saleRef, {
       isDeleted: false,
       deletedAt: null,
       restoredAt: Timestamp.now()
     });
-
-    // Update inventory (subtract the quantity again since we're restoring the sale)
-    await updateInventory(saleData.product, -saleData.quantity);
-
-    // Commit the batch
-    await batch.commit();
   } catch (error) {
     console.error('Error restoring sale:', error);
     throw error;
@@ -816,30 +654,13 @@ export const restorePurchase = async (purchaseId: string): Promise<void> => {
     if (!purchaseDoc.exists()) {
       throw new Error('Purchase not found');
     }
-
-    const purchaseData = purchaseDoc.data();
     
-    // Start a batch write
-    const batch = writeBatch(db);
-
     // Restore the purchase document
-    batch.update(purchaseRef, {
+    await updateDoc(purchaseRef, {
       isDeleted: false,
       deletedAt: null,
       restoredAt: Timestamp.now()
     });
-
-    // Update inventory with the original quantity
-    await updateInventory(
-      purchaseData.product,
-      purchaseData.quantity,
-      purchaseData.gender,
-      purchaseData.color,
-      purchaseData.dialColor
-    );
-
-    // Commit the batch
-    await batch.commit();
   } catch (error) {
     console.error('Error restoring purchase:', error);
     throw error;

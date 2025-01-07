@@ -53,7 +53,7 @@ const Sidebar = () => {
         </NavLink>
 
         <NavLink 
-          to="/inventory" 
+          to="/purchases" 
           className={({ isActive }) => 
             `flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
               isActive 
@@ -63,7 +63,7 @@ const Sidebar = () => {
           }
         >
           <BackpackIcon className="h-4 w-4" />
-          Inventory
+          Purchases
         </NavLink>
 
         <NavLink 

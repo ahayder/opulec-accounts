@@ -1,64 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { getSales, getPurchases, getExpenses, getInvestments, getAssets } from '@/utils/database';
-import { Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
-import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 import dayjs from 'dayjs';
-
-interface DashboardMetrics {
-  totalSales: number;
-  totalPurchases: number;
-  totalExpenses: number;
-  totalInvestments: number;
-  totalAssets: number;
-  netIncome: number;
-}
-
-interface MetricCardProps {
-  title: string;
-  value: number;
-  type: 'currency';
-  className?: string;
-  valueClassName?: string;
-}
-
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, type, className, valueClassName }) => (
-  <div className={cn("p-4 border rounded-lg", className)}>
-    <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-    <p className={cn("text-2xl font-bold mt-2", valueClassName)}>
-      {type === 'currency' ? `৳${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : value}
-    </p>
-  </div>
-);
+import { getSales, getPurchases, getExpenses, getInvestments } from '@/utils/database';
 
 const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
-  const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    totalSales: 0,
-    totalPurchases: 0,
-    totalExpenses: 0,
-    totalInvestments: 0,
-    totalAssets: 0,
-    netIncome: 0
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const endDate = new Date();
+  const [dashboardData, setDashboardData] = useState<{
+    sales: number;
+    purchases: number;
+    expenses: number;
+    investments: number;
+    currentStock: {
+      [key: string]: {
+        product: string;
+        quantity: number;
+        value: number;
+      };
+    };
+  }>({
+    sales: 0,
+    purchases: 0,
+    expenses: 0,
+    investments: 0,
+    currentStock: {}
   });
 
   useEffect(() => {
     loadDashboardData();
-  }, [startDate, endDate]);
+  }, []);
 
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      const [sales, purchases, expenses, investments, assets] = await Promise.all([
+      const [sales, purchases, expenses, investments] = await Promise.all([
         getSales(),
         getPurchases(),
         getExpenses(),
-        getInvestments(),
-        getAssets()
+        getInvestments()
       ]);
 
       // Filter data based on date range
@@ -85,20 +67,47 @@ const DashboardPage = () => {
         return investmentDate.isAfter(start) && investmentDate.isBefore(end);
       });
 
+      // Calculate current stock
+      const currentStock: {
+        [key: string]: {
+          product: string;
+          quantity: number;
+          value: number;
+        };
+      } = {};
+
+      // Add all purchases
+      purchases.forEach(purchase => {
+        if (!currentStock[purchase.product]) {
+          currentStock[purchase.product] = {
+            product: purchase.product,
+            quantity: 0,
+            value: 0
+          };
+        }
+        currentStock[purchase.product].quantity += purchase.quantity;
+        currentStock[purchase.product].value += purchase.total;
+      });
+
+      // Subtract all sales
+      sales.forEach(sale => {
+        if (currentStock[sale.product]) {
+          currentStock[sale.product].quantity -= sale.quantity;
+        }
+      });
+
       // Calculate totals
       const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
       const totalPurchases = filteredPurchases.reduce((sum, purchase) => sum + purchase.total, 0);
       const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
       const totalInvestments = filteredInvestments.reduce((sum, investment) => sum + investment.amount, 0);
-      const totalAssets = assets.reduce((sum, asset) => sum + asset.cost, 0);
 
-      setMetrics({
-        totalSales,
-        totalPurchases,
-        totalExpenses,
-        totalInvestments,
-        totalAssets,
-        netIncome: totalSales - totalPurchases - totalExpenses
+      setDashboardData({
+        sales: totalSales,
+        purchases: totalPurchases,
+        expenses: totalExpenses,
+        investments: totalInvestments,
+        currentStock
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -111,82 +120,92 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 pt-6">
-      <div className="flex justify-between items-center border-b pb-4">
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Track your business performance and financial metrics
+            Overview of your business performance
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 mt-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Label htmlFor="startDate">Start Date</Label>
-            <Input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Label htmlFor="endDate">End Date</Label>
-            <Input
-              id="endDate"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">৳{dashboardData.sales.toFixed(2)}</div>
+          </CardContent>
+        </Card>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <MetricCard
-              title="Total Sales"
-              value={metrics.totalSales}
-              type="currency"
-            />
-            <MetricCard
-              title="Total Purchases"
-              value={metrics.totalPurchases}
-              type="currency"
-            />
-            <MetricCard
-              title="Total Expenses"
-              value={metrics.totalExpenses}
-              type="currency"
-            />
-            <MetricCard
-              title="Total Investments"
-              value={metrics.totalInvestments}
-              type="currency"
-            />
-            <MetricCard
-              title="Total Assets"
-              value={metrics.totalAssets}
-              type="currency"
-            />
-            <MetricCard
-              title="Net Income"
-              value={metrics.netIncome}
-              type="currency"
-              className={cn(
-                metrics.netIncome >= 0 ? "bg-green-50" : "bg-red-50",
-                "dark:bg-transparent"
-              )}
-              valueClassName={metrics.netIncome >= 0 ? "text-green-600" : "text-red-600"}
-            />
-          </div>
-        )}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">৳{dashboardData.purchases.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">৳{dashboardData.expenses.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Investments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">৳{dashboardData.investments.toFixed(2)}</div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Current Stock</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading stock data...
+            </div>
+          ) : Object.keys(dashboardData.currentStock).length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No stock data available</p>
+          ) : (
+            <div className="relative w-full overflow-auto">
+              <table className="w-full caption-bottom text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="h-12 px-4 text-left align-middle font-medium">Product</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium">Quantity</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.values(dashboardData.currentStock)
+                    .filter(item => item.quantity > 0)
+                    .map(item => (
+                      <tr key={item.product} className="border-b">
+                        <td className="p-4 align-middle">{item.product}</td>
+                        <td className="p-4 align-middle text-right">{item.quantity}</td>
+                        <td className="p-4 align-middle text-right">৳{item.value.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

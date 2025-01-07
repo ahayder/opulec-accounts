@@ -7,7 +7,7 @@ import ExpensesPage from './pages/expenses/ExpensesPage'
 import AssetsPage from './pages/assets/AssetsPage'
 import InvestmentsPage from './pages/investments/InvestmentsPage'
 import SettingsPage from './pages/settings/SettingsPage'
-import InventoryPage from './pages/inventory/InventoryPage'
+import PurchasesPage from './pages/purchases/PurchasesPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Sidebar from './components/dashboard/Sidebar'
 
@@ -19,7 +19,7 @@ const AppLayout = () => {
         <Routes>
           <Route index element={<DashboardPage />} />
           <Route path="sales" element={<SalesPage />} />
-          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="purchases" element={<PurchasesPage />} />
           <Route path="expenses" element={<ExpensesPage />} />
           <Route path="assets" element={<AssetsPage />} />
           <Route path="investments" element={<InvestmentsPage />} />

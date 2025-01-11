@@ -84,15 +84,65 @@ const ExpensesPage = () => {
 
   // Calculate expenses summary based on filtered expenses
   const expensesSummary = React.useMemo(() => {
-    return filteredExpenses.reduce((acc, expense) => ({
-      totalExpenses: acc.totalExpenses + expense.amount,
-      totalCount: acc.totalCount + 1,
-      averageAmount: (acc.totalExpenses + expense.amount) / (acc.totalCount + 1)
-    }), {
-      totalExpenses: 0,
-      totalCount: 0,
-      averageAmount: 0
+    // Group expenses by category and calculate total for each
+    const categoryTotals = filteredExpenses.reduce((acc, expense) => {
+      const category = expense.category;
+      acc[category] = (acc[category] || 0) + expense.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Find category with highest total
+    let highestCategory = {
+      name: '',
+      amount: 0,
+      percentage: 0
+    };
+
+    // Calculate total expenses first
+    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+    // Calculate average monthly expenses
+    const dates = filteredExpenses.map(expense => 
+      typeof expense.date === 'string' 
+        ? new Date(expense.date) 
+        : new Date((expense.date as FirestoreTimestamp).seconds * 1000)
+    );
+    
+    let monthlyAverage = 0;
+    if (dates.length > 0) {
+      const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+      const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+      const monthDiff = (latest.getFullYear() - earliest.getFullYear()) * 12 + 
+                       (latest.getMonth() - earliest.getMonth()) + 1;
+      monthlyAverage = totalExpenses / Math.max(1, monthDiff);
+    }
+
+    Object.entries(categoryTotals).forEach(([category, total]) => {
+      if (total > highestCategory.amount) {
+        highestCategory = {
+          name: category,
+          amount: total,
+          percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0
+        };
+      }
     });
+
+    // Calculate Facebook ads spending
+    const facebookAdsTotal = filteredExpenses
+      .filter(expense => expense.category.toLowerCase().includes('facebook') || 
+                        expense.category.toLowerCase().includes('fb') ||
+                        expense.category.toLowerCase().includes('meta'))
+      .reduce((sum, expense) => sum + expense.amount, 0);
+
+    return {
+      totalExpenses,
+      monthlyAverage,
+      highestCategory,
+      facebookAds: {
+        amount: facebookAdsTotal,
+        percentage: totalExpenses > 0 ? (facebookAdsTotal / totalExpenses) * 100 : 0
+      }
+    };
   }, [filteredExpenses]);
 
   useEffect(() => {
@@ -536,18 +586,33 @@ const ExpensesPage = () => {
         </div>
 
         {/* Expenses Summary Section */}
-        <div className="grid grid-cols-3 gap-4 mt-4 mb-6">
+        <div className="grid grid-cols-4 gap-4 mt-4 mb-6">
           <div className="border rounded-lg p-4 bg-background">
             <h3 className="text-sm font-medium text-muted-foreground">Total Expenses</h3>
             <p className="text-2xl font-bold mt-1">৳{expensesSummary.totalExpenses.toFixed(2)}</p>
           </div>
           <div className="border rounded-lg p-4 bg-background">
-            <h3 className="text-sm font-medium text-muted-foreground">Total Entries</h3>
-            <p className="text-2xl font-bold mt-1">{expensesSummary.totalCount}</p>
+            <h3 className="text-sm font-medium text-muted-foreground">Monthly Average</h3>
+            <p className="text-2xl font-bold mt-1">৳{expensesSummary.monthlyAverage.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground mt-1">Per month</p>
           </div>
           <div className="border rounded-lg p-4 bg-background">
-            <h3 className="text-sm font-medium text-muted-foreground">Average Amount</h3>
-            <p className="text-2xl font-bold mt-1">৳{expensesSummary.averageAmount.toFixed(2)}</p>
+            <h3 className="text-sm font-medium text-muted-foreground">Highest Spending</h3>
+            <p className="text-2xl font-bold mt-1">৳{expensesSummary.highestCategory.amount.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {expensesSummary.highestCategory.name 
+                ? `${expensesSummary.highestCategory.name} (${expensesSummary.highestCategory.percentage.toFixed(1)}% of total)`
+                : 'No expenses'}
+            </p>
+          </div>
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Facebook Ads</h3>
+            <p className="text-2xl font-bold mt-1">৳{expensesSummary.facebookAds.amount.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {expensesSummary.facebookAds.amount > 0 
+                ? `${expensesSummary.facebookAds.percentage.toFixed(1)}% of total`
+                : 'No ad expenses'}
+            </p>
           </div>
         </div>
 
@@ -556,10 +621,10 @@ const ExpensesPage = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[150px]">Category</TableHead>
+                <TableHead className="w-[180px]">Category</TableHead>
                 <TableHead className="w-[200px]">Description</TableHead>
                 <TableHead className="w-[120px]">Amount</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead className="w-[200px]">Notes</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>

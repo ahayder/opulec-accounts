@@ -107,7 +107,7 @@ const PurchasesPage = () => {
 
   // Calculate purchases summary based on filtered purchases
   const purchasesSummary = React.useMemo(() => {
-    return filteredPurchases.reduce((acc, purchase) => ({
+    const summary = filteredPurchases.reduce((acc, purchase) => ({
       totalPurchases: acc.totalPurchases + purchase.total,
       totalQuantity: acc.totalQuantity + purchase.quantity,
       averagePrice: (acc.totalPurchases + purchase.total) / (acc.totalQuantity + purchase.quantity)
@@ -116,6 +116,27 @@ const PurchasesPage = () => {
       totalQuantity: 0,
       averagePrice: 0
     });
+
+    // Calculate monthly average
+    const dates = filteredPurchases.map(purchase => 
+      typeof purchase.date === 'string' 
+        ? new Date(purchase.date) 
+        : new Date((purchase.date as FirestoreTimestamp).seconds * 1000)
+    );
+    
+    let monthlyAverage = 0;
+    if (dates.length > 0) {
+      const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+      const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+      const monthDiff = (latest.getFullYear() - earliest.getFullYear()) * 12 + 
+                       (latest.getMonth() - earliest.getMonth()) + 1;
+      monthlyAverage = summary.totalPurchases / Math.max(1, monthDiff);
+    }
+
+    return {
+      ...summary,
+      monthlyAverage
+    };
   }, [filteredPurchases]);
 
   useEffect(() => {
@@ -554,10 +575,15 @@ const PurchasesPage = () => {
         </div>
 
         {/* Purchases Summary Section */}
-        <div className="grid grid-cols-3 gap-4 mt-4 mb-6">
+        <div className="grid grid-cols-4 gap-4 mt-4 mb-6">
           <div className="border rounded-lg p-4 bg-background">
             <h3 className="text-sm font-medium text-muted-foreground">Total Purchases</h3>
             <p className="text-2xl font-bold mt-1">৳{purchasesSummary.totalPurchases.toFixed(2)}</p>
+          </div>
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Monthly Average</h3>
+            <p className="text-2xl font-bold mt-1">৳{purchasesSummary.monthlyAverage.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground mt-1">Per month</p>
           </div>
           <div className="border rounded-lg p-4 bg-background">
             <h3 className="text-sm font-medium text-muted-foreground">Total Quantity</h3>

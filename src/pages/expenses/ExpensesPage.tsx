@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addExpense, getExpenses, addExpenseCategory, getExpenseCategories, type ExpenseEntry as DBExpenseEntry, type ExpenseCategory, deleteExpense, getDeletedExpenses, restoreExpense } from '@/utils/database';
-import { Loader2, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
+import { Loader2, ChevronRight, Trash2, RotateCcw, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateForInput } from "@/utils/dateFormat";
@@ -27,6 +27,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+
+// Define Firestore Timestamp type for internal use
+type FirestoreTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+};
+
+type DateRange = {
+  from: Date;
+  to: Date;
+} | null;
 
 interface ExpenseFormData {
   date: string;
@@ -45,6 +62,7 @@ const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = 
 
 const ExpensesPage = () => {
   const [expenses, setExpenses] = useState<DBExpenseEntry[]>([]);
+  const [filteredExpenses, setFilteredExpenses] = useState<DBExpenseEntry[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +70,9 @@ const ExpensesPage = () => {
   const [expenseToDelete, setExpenseToDelete] = useState<DBExpenseEntry | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>(null);
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [dateRangeDisplay, setDateRangeDisplay] = useState<string>('');
   
   const [formData, setFormData] = useState<ExpenseFormData>({
     date: formatDateForInput(new Date()),
@@ -61,9 +82,9 @@ const ExpensesPage = () => {
     notes: ''
   });
 
-  // Calculate expenses summary
+  // Calculate expenses summary based on filtered expenses
   const expensesSummary = React.useMemo(() => {
-    return expenses.reduce((acc, expense) => ({
+    return filteredExpenses.reduce((acc, expense) => ({
       totalExpenses: acc.totalExpenses + expense.amount,
       totalCount: acc.totalCount + 1,
       averageAmount: (acc.totalExpenses + expense.amount) / (acc.totalCount + 1)
@@ -72,7 +93,7 @@ const ExpensesPage = () => {
       totalCount: 0,
       averageAmount: 0
     });
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   useEffect(() => {
     loadExpenses();
@@ -82,6 +103,56 @@ const ExpensesPage = () => {
   useEffect(() => {
     loadData();
   }, [showDeleted]);
+
+  useEffect(() => {
+    if (expenses.length > 0) {
+      filterExpenses();
+    }
+  }, [expenses, dateRange, activeFilter]);
+
+  useEffect(() => {
+    updateDateRangeDisplay();
+  }, [filteredExpenses, activeFilter, dateRange]);
+
+  const filterExpenses = () => {
+    let filtered = [...expenses];
+    
+    if (dateRange?.from && dateRange?.to) {
+      filtered = filtered.filter(expense => {
+        const expenseDate = typeof expense.date === 'string' 
+          ? new Date(expense.date) 
+          : new Date((expense.date as FirestoreTimestamp).seconds * 1000);
+        return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
+      });
+    } else {
+      const today = new Date();
+      const fromDate = new Date();
+
+      switch (activeFilter) {
+        case '7days':
+          fromDate.setDate(today.getDate() - 7);
+          break;
+        case '1month':
+          fromDate.setMonth(today.getMonth() - 1);
+          break;
+        case '3months':
+          fromDate.setMonth(today.getMonth() - 3);
+          break;
+        default:
+          setFilteredExpenses(filtered);
+          return;
+      }
+
+      filtered = filtered.filter(expense => {
+        const expenseDate = typeof expense.date === 'string' 
+          ? new Date(expense.date) 
+          : new Date((expense.date as FirestoreTimestamp).seconds * 1000);
+        return expenseDate >= fromDate && expenseDate <= today;
+      });
+    }
+
+    setFilteredExpenses(filtered);
+  };
 
   const loadExpenses = async () => {
     try {
@@ -252,6 +323,52 @@ const ExpensesPage = () => {
     }
   };
 
+  const updateDateRangeDisplay = () => {
+    if (filteredExpenses.length === 0) {
+      setDateRangeDisplay('No data to display');
+      return;
+    }
+
+    // Get the earliest and latest dates from filtered data
+    const dates = filteredExpenses.map(expense => 
+      typeof expense.date === 'string' 
+        ? new Date(expense.date) 
+        : new Date((expense.date as FirestoreTimestamp).seconds * 1000)
+    );
+    const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+    const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+
+    // Format date to "Jan 1 2025" style
+    const formatDisplayDate = (date: Date) => {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    };
+
+    if (dateRange?.from && dateRange?.to) {
+      setDateRangeDisplay(`Showing data from ${formatDisplayDate(dateRange.from)} to ${formatDisplayDate(dateRange.to)}`);
+    } else {
+      switch (activeFilter) {
+        case 'all':
+          setDateRangeDisplay(`Showing all data (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        case '7days':
+          setDateRangeDisplay(`Last 7 days (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        case '1month':
+          setDateRangeDisplay(`Last month (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        case '3months':
+          setDateRangeDisplay(`Last 3 months (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        default:
+          setDateRangeDisplay('');
+      }
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -275,6 +392,147 @@ const ExpensesPage = () => {
               onCheckedChange={setShowDeleted}
             />
           </div>
+        </div>
+
+        {/* Date Filter Section */}
+        <div className="space-y-4 mt-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={activeFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('all');
+                setDateRange(null);
+              }}
+            >
+              All Time
+            </Button>
+            <Button
+              variant={activeFilter === '7days' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('7days');
+                setDateRange(null);
+              }}
+            >
+              Last 7 Days
+            </Button>
+            <Button
+              variant={activeFilter === '1month' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('1month');
+                setDateRange(null);
+              }}
+            >
+              Last Month
+            </Button>
+            <Button
+              variant={activeFilter === '3months' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('3months');
+                setDateRange(null);
+              }}
+            >
+              Last 3 Months
+            </Button>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={dateRange?.from ? 'default' : 'outline'}
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !dateRange?.from && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      formatDate(dateRange.from)
+                    ) : (
+                      "From Date"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="border-b p-3">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Select start date</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Pick the starting date
+                      </p>
+                    </div>
+                  </div>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange?.from}
+                    onSelect={(date: Date | undefined) => {
+                      if (date) {
+                        const newRange = {
+                          from: date,
+                          to: dateRange?.to ?? date
+                        };
+                        setDateRange(newRange);
+                        setActiveFilter('custom');
+                      }
+                    }}
+                    className="p-3"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <span className="text-muted-foreground">-</span>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={dateRange?.to ? 'default' : 'outline'}
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !dateRange?.to && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange?.to ? (
+                      formatDate(dateRange.to)
+                    ) : (
+                      "To Date"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="border-b p-3">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Select end date</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Pick the ending date
+                      </p>
+                    </div>
+                  </div>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange?.to}
+                    onSelect={(date: Date | undefined) => {
+                      if (date) {
+                        const newRange = {
+                          from: dateRange?.from ?? date,
+                          to: date
+                        };
+                        setDateRange(newRange);
+                        setActiveFilter('custom');
+                      }
+                    }}
+                    className="p-3"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Date Range Display */}
+          {dateRangeDisplay && (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              {dateRangeDisplay}
+            </div>
+          )}
         </div>
 
         {/* Expenses Summary Section */}
@@ -315,14 +573,14 @@ const ExpensesPage = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : expenses.length === 0 ? (
+              ) : filteredExpenses.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground">
                     {showDeleted ? 'No deleted expenses entries' : 'No expenses entries yet'}
                   </TableCell>
                 </TableRow>
               ) : (
-                expenses.map((expense) => (
+                filteredExpenses.map((expense) => (
                   <TableRow key={expense.id} className={cn(expense.isDeleted && "bg-muted/50")}>
                     <TableCell>{formatDate(expense.date)}</TableCell>
                     <TableCell>{expense.category}</TableCell>

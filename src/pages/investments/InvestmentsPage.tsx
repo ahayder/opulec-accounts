@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSidebar } from '@/contexts/SidebarContext';
 
 const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
   <div className="flex items-center gap-1">
@@ -24,10 +25,10 @@ const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = 
 );
 
 const InvestmentsPage = () => {
+  const { isSidebarOpen, toggleSidebar } = useSidebar();
   const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [formData, setFormData] = useState<Omit<InvestmentEntry, 'id'>>({
     date: formatDateForInput(new Date()),
@@ -132,9 +133,12 @@ const InvestmentsPage = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[200px]">Investor</TableHead>
-                <TableHead className="text-right w-[120px]">Amount</TableHead>
-                <TableHead>Note</TableHead>
+                <TableHead className="w-[180px]">Name</TableHead>
+                <TableHead className="w-[120px]">Type</TableHead>
+                <TableHead className="w-[120px]">Amount</TableHead>
+                <TableHead className="w-[120px]">Return</TableHead>
+                <TableHead className="w-[200px]">Notes</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -181,7 +185,7 @@ const InvestmentsPage = () => {
             "h-10 w-10 absolute -left-5 top-[68px] z-10 rounded-full bg-background border shadow-md hover:bg-accent",
             !isSidebarOpen && "rotate-180"
           )}
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          onClick={toggleSidebar}
         >
           <ChevronRight className="h-6 w-6" />
         </Button>

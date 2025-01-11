@@ -33,6 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { useSidebar } from '@/contexts/SidebarContext';
 
 // Define Firestore Timestamp type for internal use
 type FirestoreTimestamp = {
@@ -66,7 +67,7 @@ const ExpensesPage = () => {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isSidebarOpen, toggleSidebar } = useSidebar();
   const [expenseToDelete, setExpenseToDelete] = useState<DBExpenseEntry | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -695,7 +696,7 @@ const ExpensesPage = () => {
             "h-10 w-10 absolute -left-5 top-[68px] z-10 rounded-full bg-background border shadow-md hover:bg-accent",
             !isSidebarOpen && "rotate-180"
           )}
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          onClick={toggleSidebar}
         >
           <ChevronRight className="h-6 w-6" />
         </Button>

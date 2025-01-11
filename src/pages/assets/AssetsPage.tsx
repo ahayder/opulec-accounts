@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addAsset, getAssets, type AssetEntry } from '@/utils/database';
-import { Loader2, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronRight, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { formatDateForInput } from "@/utils/dateFormat";
@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSidebar } from '@/contexts/SidebarContext';
 
 const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
   <div className="flex items-center gap-1">
@@ -24,10 +25,10 @@ const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = 
 );
 
 const AssetsPage = () => {
+  const { isSidebarOpen, toggleSidebar } = useSidebar();
   const [assets, setAssets] = useState<AssetEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [formData, setFormData] = useState<Omit<AssetEntry, 'id'>>({
     name: '',
@@ -141,13 +142,13 @@ const AssetsPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px]">Name</TableHead>
-                <TableHead className="w-[120px]">Purchase Date</TableHead>
-                <TableHead className="text-right w-[120px]">Cost</TableHead>
-                <TableHead className="text-right w-[120px]">Useful Life</TableHead>
-                <TableHead className="text-right w-[120px]">Depreciation/Month</TableHead>
-                <TableHead className="text-right w-[120px]">Net Book Value</TableHead>
-                <TableHead className="w-[200px]">Note</TableHead>
+                <TableHead className="w-[120px]">Date</TableHead>
+                <TableHead className="w-[180px]">Name</TableHead>
+                <TableHead className="w-[120px]">Category</TableHead>
+                <TableHead className="w-[120px]">Purchase Price</TableHead>
+                <TableHead className="w-[120px]">Current Value</TableHead>
+                <TableHead className="w-[200px]">Notes</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -181,13 +182,24 @@ const AssetsPage = () => {
 
                   return (
                     <TableRow key={asset.id}>
-                      <TableCell>{asset.name}</TableCell>
                       <TableCell>{new Date(asset.purchaseDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{asset.name}</TableCell>
+                      <TableCell>{asset.usefulLife} years</TableCell>
                       <TableCell className="text-right">৳{asset.cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{asset.usefulLife} years</TableCell>
-                      <TableCell className="text-right">৳{depreciationPerMonth.toFixed(2)}</TableCell>
                       <TableCell className="text-right">৳{netBookValue.toFixed(2)}</TableCell>
                       <TableCell>{asset.note}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            // Handle edit button click
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -210,7 +222,7 @@ const AssetsPage = () => {
             "h-10 w-10 absolute -left-5 top-[68px] z-10 rounded-full bg-background border shadow-md hover:bg-accent",
             !isSidebarOpen && "rotate-180"
           )}
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          onClick={toggleSidebar}
         >
           <ChevronRight className="h-6 w-6" />
         </Button>

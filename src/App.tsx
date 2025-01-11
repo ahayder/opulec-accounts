@@ -9,6 +9,7 @@ import SettingsPage from './pages/settings/SettingsPage'
 import PurchasesPage from './pages/purchases/PurchasesPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Sidebar from './components/dashboard/Sidebar'
+import { SidebarProvider } from './contexts/SidebarContext'
 
 const AppLayout = () => {
   return (
@@ -31,17 +32,19 @@ const AppLayout = () => {
 
 const App = () => {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <SidebarProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </SidebarProvider>
   );
 };
 

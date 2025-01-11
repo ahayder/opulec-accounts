@@ -93,6 +93,7 @@ const SalesPage = () => {
   const [isRestoring, setIsRestoring] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [dateRangeDisplay, setDateRangeDisplay] = useState<string>('');
   
   const [newSale, setNewSale] = useState<Partial<SaleEntry>>({
     date: formatDate(new Date())
@@ -122,6 +123,10 @@ const SalesPage = () => {
       filterSales();
     }
   }, [sales, dateRange, activeFilter]);
+
+  useEffect(() => {
+    updateDateRangeDisplay();
+  }, [filteredSales, activeFilter, dateRange]);
 
   const filterSales = () => {
     let filtered = [...sales];
@@ -321,6 +326,52 @@ const SalesPage = () => {
     }
   };
 
+  const updateDateRangeDisplay = () => {
+    if (filteredSales.length === 0) {
+      setDateRangeDisplay('No data to display');
+      return;
+    }
+
+    // Get the earliest and latest dates from filtered data
+    const dates = filteredSales.map(sale => 
+      typeof sale.date === 'string' 
+        ? new Date(sale.date) 
+        : new Date((sale.date as FirestoreTimestamp).seconds * 1000)
+    );
+    const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+    const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+
+    // Format date to "Jan 1 2025" style
+    const formatDisplayDate = (date: Date) => {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    };
+
+    if (dateRange?.from && dateRange?.to) {
+      setDateRangeDisplay(`Showing data from ${formatDisplayDate(dateRange.from)} to ${formatDisplayDate(dateRange.to)}`);
+    } else {
+      switch (activeFilter) {
+        case 'all':
+          setDateRangeDisplay(`Showing all data (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        case '7days':
+          setDateRangeDisplay(`Last 7 days (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        case '1month':
+          setDateRangeDisplay(`Last month (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        case '3months':
+          setDateRangeDisplay(`Last 3 months (${formatDisplayDate(earliest)} - ${formatDisplayDate(latest)})`);
+          break;
+        default:
+          setDateRangeDisplay('');
+      }
+    }
+  };
+
   return (
     <div className="flex h-full">
       <div 
@@ -347,7 +398,7 @@ const SalesPage = () => {
         </div>
 
         {/* Date Filter Section */}
-        <div className="flex items-center gap-4 mt-4">
+        <div className="space-y-4 mt-4">
           <div className="flex items-center gap-2">
             <Button
               variant={activeFilter === 'all' ? 'default' : 'outline'}
@@ -477,6 +528,14 @@ const SalesPage = () => {
               </Popover>
             </div>
           </div>
+
+          {/* Date Range Display */}
+          {dateRangeDisplay && (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              {dateRangeDisplay}
+            </div>
+          )}
         </div>
 
         {/* Sales Summary Section */}

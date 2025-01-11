@@ -617,16 +617,16 @@ const ExpensesPage = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg mt-4">
+        <div className="border rounded-lg mt-4 min-w-[1220px] w-full">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[180px]">Category</TableHead>
-                <TableHead className="w-[200px]">Description</TableHead>
-                <TableHead className="w-[120px]">Amount</TableHead>
-                <TableHead className="w-[200px]">Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[200px]">Category</TableHead>
+                <TableHead className="w-[250px]">Description</TableHead>
+                <TableHead className="w-[150px]">Amount</TableHead>
+                <TableHead className="w-[420px]">Notes</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

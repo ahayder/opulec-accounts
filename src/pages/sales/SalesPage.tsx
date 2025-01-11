@@ -583,18 +583,18 @@ const SalesPage = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg mt-4">
+        <div className="border rounded-lg mt-4 min-w-[1220px] w-full">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[180px]">Product</TableHead>
-                <TableHead className="w-[120px]">Order Number</TableHead>
-                <TableHead className="w-[100px]">Quantity</TableHead>
-                <TableHead className="w-[120px]">Price</TableHead>
-                <TableHead className="w-[120px]">Total</TableHead>
-                <TableHead className="w-[200px]">Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[200px]">Product</TableHead>
+                <TableHead className="w-[150px]">Order Number</TableHead>
+                <TableHead className="w-[120px]">Quantity</TableHead>
+                <TableHead className="w-[150px]">Price</TableHead>
+                <TableHead className="w-[150px]">Total</TableHead>
+                <TableHead className="w-[250px]">Notes</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

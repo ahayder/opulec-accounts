@@ -67,6 +67,7 @@ const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = 
 interface PurchaseFormData {
   date: string;
   product: string;
+  order_number: string;
   quantity: number;
   price: number;
   total: number;
@@ -100,6 +101,7 @@ const PurchasesPage = () => {
   const [formData, setFormData] = useState<PurchaseFormData>({
     date: formatDate(new Date()),
     product: '',
+    order_number: '',
     quantity: 0,
     price: 0,
     total: 0,
@@ -306,6 +308,7 @@ const PurchasesPage = () => {
       setFormData({
         date: formatDate(new Date()),
         product: '',
+        order_number: '',
         quantity: 0,
         price: 0,
         total: 0,
@@ -596,17 +599,18 @@ const PurchasesPage = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg mt-4">
+        <div className="border rounded-lg mt-4 min-w-[1220px] w-full">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[180px]">Product</TableHead>
-                <TableHead className="w-[100px]">Quantity</TableHead>
-                <TableHead className="w-[120px]">Price</TableHead>
-                <TableHead className="w-[120px]">Total</TableHead>
-                <TableHead className="w-[200px]">Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[200px]">Product</TableHead>
+                <TableHead className="w-[150px]">Order Number</TableHead>
+                <TableHead className="w-[120px]">Quantity</TableHead>
+                <TableHead className="w-[150px]">Price</TableHead>
+                <TableHead className="w-[150px]">Total</TableHead>
+                <TableHead className="w-[250px]">Notes</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -630,6 +634,7 @@ const PurchasesPage = () => {
                   <TableRow key={purchase.id} className={cn(purchase.isDeleted && "bg-muted/50")}>
                     <TableCell>{formatDate(purchase.date)}</TableCell>
                     <TableCell>{purchase.product}</TableCell>
+                    <TableCell>ORD-{Math.floor(Math.random() * 10000)}</TableCell>
                     <TableCell>{purchase.quantity}</TableCell>
                     <TableCell>৳{purchase.price.toFixed(2)}</TableCell>
                     <TableCell>৳{purchase.total.toFixed(2)}</TableCell>
@@ -763,6 +768,19 @@ const PurchasesPage = () => {
                     value={formData.notes || ''}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     placeholder="Add notes..."
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div>
+                  <RequiredLabel htmlFor="order_number">Order Number</RequiredLabel>
+                  <Input
+                    id="order_number"
+                    name="order_number"
+                    value={formData.order_number}
+                    onChange={(e) => handleInputChange('order_number', e.target.value)}
+                    placeholder="Order #"
+                    required
                     disabled={isSubmitting}
                   />
                 </div>

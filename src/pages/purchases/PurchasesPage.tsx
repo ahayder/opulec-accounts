@@ -21,7 +21,7 @@ import {
   type PurchaseEntry,
   type Category
 } from '@/utils/database';
-import { Loader2, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
+import { Loader2, ChevronRight, Trash2, RotateCcw, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import CategorySelect from '@/components/form/CategorySelect';
@@ -37,6 +37,23 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import dayjs from 'dayjs';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+
+// Define Firestore Timestamp type for internal use
+type FirestoreTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+};
+
+type DateRange = {
+  from: Date;
+  to: Date;
+} | null;
 
 // Add Required label component
 const RequiredLabel: React.FC<{ htmlFor: string; children: React.ReactNode }> = ({ htmlFor, children }) => (
@@ -67,6 +84,7 @@ const dateToInputValue = (date: Date | string): string => {
 
 const PurchasesPage = () => {
   const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
+  const [filteredPurchases, setFilteredPurchases] = useState<PurchaseEntry[]>([]);
   const [productCategories, setProductCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +92,8 @@ const PurchasesPage = () => {
   const [purchaseToDelete, setPurchaseToDelete] = useState<PurchaseEntry | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>(null);
+  const [activeFilter, setActiveFilter] = useState<string>('all');
   
   const [formData, setFormData] = useState<PurchaseFormData>({
     date: formatDate(new Date()),
@@ -84,9 +104,9 @@ const PurchasesPage = () => {
     notes: ''
   });
 
-  // Calculate purchases summary
+  // Calculate purchases summary based on filtered purchases
   const purchasesSummary = React.useMemo(() => {
-    return purchases.reduce((acc, purchase) => ({
+    return filteredPurchases.reduce((acc, purchase) => ({
       totalPurchases: acc.totalPurchases + purchase.total,
       totalQuantity: acc.totalQuantity + purchase.quantity,
       averagePrice: (acc.totalPurchases + purchase.total) / (acc.totalQuantity + purchase.quantity)
@@ -95,11 +115,57 @@ const PurchasesPage = () => {
       totalQuantity: 0,
       averagePrice: 0
     });
-  }, [purchases]);
+  }, [filteredPurchases]);
 
   useEffect(() => {
     loadData();
   }, [showDeleted]);
+
+  useEffect(() => {
+    if (purchases.length > 0) {
+      filterPurchases();
+    }
+  }, [purchases, dateRange, activeFilter]);
+
+  const filterPurchases = () => {
+    let filtered = [...purchases];
+    
+    if (dateRange?.from && dateRange?.to) {
+      filtered = filtered.filter(purchase => {
+        const purchaseDate = typeof purchase.date === 'string' 
+          ? new Date(purchase.date) 
+          : new Date((purchase.date as FirestoreTimestamp).seconds * 1000);
+        return purchaseDate >= dateRange.from && purchaseDate <= dateRange.to;
+      });
+    } else {
+      const today = new Date();
+      const fromDate = new Date();
+
+      switch (activeFilter) {
+        case '7days':
+          fromDate.setDate(today.getDate() - 7);
+          break;
+        case '1month':
+          fromDate.setMonth(today.getMonth() - 1);
+          break;
+        case '3months':
+          fromDate.setMonth(today.getMonth() - 3);
+          break;
+        default:
+          setFilteredPurchases(filtered);
+          return;
+      }
+
+      filtered = filtered.filter(purchase => {
+        const purchaseDate = typeof purchase.date === 'string' 
+          ? new Date(purchase.date) 
+          : new Date((purchase.date as FirestoreTimestamp).seconds * 1000);
+        return purchaseDate >= fromDate && purchaseDate <= today;
+      });
+    }
+
+    setFilteredPurchases(filtered);
+  };
 
   const loadData = async () => {
     try {
@@ -295,6 +361,139 @@ const PurchasesPage = () => {
           </div>
         </div>
 
+        {/* Date Filter Section */}
+        <div className="flex items-center gap-4 mt-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={activeFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('all');
+                setDateRange(null);
+              }}
+            >
+              All Time
+            </Button>
+            <Button
+              variant={activeFilter === '7days' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('7days');
+                setDateRange(null);
+              }}
+            >
+              Last 7 Days
+            </Button>
+            <Button
+              variant={activeFilter === '1month' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('1month');
+                setDateRange(null);
+              }}
+            >
+              Last Month
+            </Button>
+            <Button
+              variant={activeFilter === '3months' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveFilter('3months');
+                setDateRange(null);
+              }}
+            >
+              Last 3 Months
+            </Button>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={dateRange?.from ? 'default' : 'outline'}
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !dateRange?.from && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      formatDate(dateRange.from)
+                    ) : (
+                      "From Date"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="border-b p-3">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Select start date</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Pick the starting date
+                      </p>
+                    </div>
+                  </div>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange?.from}
+                    onSelect={(date: Date | undefined) => {
+                      if (date) {
+                        const newRange = {
+                          from: date,
+                          to: dateRange?.to ?? date
+                        };
+                        setDateRange(newRange);
+                        setActiveFilter('custom');
+                      }
+                    }}
+                    className="p-3"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <span className="text-muted-foreground">-</span>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={dateRange?.to ? 'default' : 'outline'}
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !dateRange?.to && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange?.to ? (
+                      formatDate(dateRange.to)
+                    ) : (
+                      "To Date"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="border-b p-3">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Select end date</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Pick the ending date
+                      </p>
+                    </div>
+                  </div>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange?.to}
+                    onSelect={(date: Date | undefined) => {
+                      if (date) {
+                        const newRange = {
+                          from: dateRange?.from ?? date,
+                          to: date
+                        };
+                        setDateRange(newRange);
+                        setActiveFilter('custom');
+                      }
+                    }}
+                    className="p-3"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+        </div>
+
         {/* Purchases Summary Section */}
         <div className="grid grid-cols-3 gap-4 mt-4 mb-6">
           <div className="border rounded-lg p-4 bg-background">
@@ -334,14 +533,14 @@ const PurchasesPage = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : purchases.length === 0 ? (
+              ) : filteredPurchases.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground">
                     {showDeleted ? 'No deleted purchases entries' : 'No purchases entries yet'}
                   </TableCell>
                 </TableRow>
               ) : (
-                purchases.map((purchase) => (
+                filteredPurchases.map((purchase) => (
                   <TableRow key={purchase.id} className={cn(purchase.isDeleted && "bg-muted/50")}>
                     <TableCell>{formatDate(purchase.date)}</TableCell>
                     <TableCell>{purchase.product}</TableCell>

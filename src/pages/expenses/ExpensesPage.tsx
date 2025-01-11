@@ -61,6 +61,19 @@ const ExpensesPage = () => {
     notes: ''
   });
 
+  // Calculate expenses summary
+  const expensesSummary = React.useMemo(() => {
+    return expenses.reduce((acc, expense) => ({
+      totalExpenses: acc.totalExpenses + expense.amount,
+      totalCount: acc.totalCount + 1,
+      averageAmount: (acc.totalExpenses + expense.amount) / (acc.totalCount + 1)
+    }), {
+      totalExpenses: 0,
+      totalCount: 0,
+      averageAmount: 0
+    });
+  }, [expenses]);
+
   useEffect(() => {
     loadExpenses();
     loadCategories();
@@ -74,7 +87,13 @@ const ExpensesPage = () => {
     try {
       setIsLoading(true);
       const data = await getExpenses();
-      setExpenses(data);
+      // Sort expenses by date (most recent first)
+      const sortedExpenses = data.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
+      setExpenses(sortedExpenses);
     } catch (error) {
       console.error('Error loading expenses:', error);
       toast.error('Failed to load expenses', {
@@ -101,7 +120,13 @@ const ExpensesPage = () => {
     try {
       setIsLoading(true);
       const expensesData = await (showDeleted ? getDeletedExpenses() : getExpenses());
-      setExpenses(expensesData);
+      // Sort expenses by date (most recent first)
+      const sortedExpenses = expensesData.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
+      setExpenses(sortedExpenses);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load expenses data', {
@@ -249,6 +274,22 @@ const ExpensesPage = () => {
               checked={showDeleted}
               onCheckedChange={setShowDeleted}
             />
+          </div>
+        </div>
+
+        {/* Expenses Summary Section */}
+        <div className="grid grid-cols-3 gap-4 mt-4 mb-6">
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Total Expenses</h3>
+            <p className="text-2xl font-bold mt-1">৳{expensesSummary.totalExpenses.toFixed(2)}</p>
+          </div>
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Total Entries</h3>
+            <p className="text-2xl font-bold mt-1">{expensesSummary.totalCount}</p>
+          </div>
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Average Amount</h3>
+            <p className="text-2xl font-bold mt-1">৳{expensesSummary.averageAmount.toFixed(2)}</p>
           </div>
         </div>
 

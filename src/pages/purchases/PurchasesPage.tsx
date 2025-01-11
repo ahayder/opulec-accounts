@@ -84,6 +84,19 @@ const PurchasesPage = () => {
     notes: ''
   });
 
+  // Calculate purchases summary
+  const purchasesSummary = React.useMemo(() => {
+    return purchases.reduce((acc, purchase) => ({
+      totalPurchases: acc.totalPurchases + purchase.total,
+      totalQuantity: acc.totalQuantity + purchase.quantity,
+      averagePrice: (acc.totalPurchases + purchase.total) / (acc.totalQuantity + purchase.quantity)
+    }), {
+      totalPurchases: 0,
+      totalQuantity: 0,
+      averagePrice: 0
+    });
+  }, [purchases]);
+
   useEffect(() => {
     loadData();
   }, [showDeleted]);
@@ -98,11 +111,19 @@ const PurchasesPage = () => {
         showDeleted ? getDeletedPurchases() : getPurchases(),
         getProductCategories()
       ]);
+      
+      // Sort purchases by date (most recent first)
+      const sortedPurchases = purchasesData.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      setPurchases(sortedPurchases);
+      setProductCategories(productCats);
       console.log('Loaded categories:', {
         products: productCats
       });
-      setPurchases(purchasesData);
-      setProductCategories(productCats);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load inventory data', {
@@ -271,6 +292,22 @@ const PurchasesPage = () => {
               checked={showDeleted}
               onCheckedChange={setShowDeleted}
             />
+          </div>
+        </div>
+
+        {/* Purchases Summary Section */}
+        <div className="grid grid-cols-3 gap-4 mt-4 mb-6">
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Total Purchases</h3>
+            <p className="text-2xl font-bold mt-1">৳{purchasesSummary.totalPurchases.toFixed(2)}</p>
+          </div>
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Total Quantity</h3>
+            <p className="text-2xl font-bold mt-1">{purchasesSummary.totalQuantity}</p>
+          </div>
+          <div className="border rounded-lg p-4 bg-background">
+            <h3 className="text-sm font-medium text-muted-foreground">Average Price</h3>
+            <p className="text-2xl font-bold mt-1">৳{purchasesSummary.averagePrice.toFixed(2)}</p>
           </div>
         </div>
 

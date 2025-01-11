@@ -9,7 +9,7 @@ import { getAuth } from 'firebase/auth';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from './components/theme/ThemeProvider';
 import './index.css';
-import './styles/calendar.css'
+
 
 // Initialize Firebase
 const firebaseConfig = {

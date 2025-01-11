@@ -42,7 +42,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import "react-day-picker/dist/style.css";
 import { useSidebar } from '@/contexts/SidebarContext';
 
 // Define Firestore Timestamp type for internal use

@@ -11,9 +11,9 @@ import { getSales, getPurchases } from '@/utils/database';
 import { cn } from "@/lib/utils";
 
 type DateRange = {
-  from: Date | undefined;
-  to: Date | undefined;
-};
+  from: Date;
+  to: Date;
+} | undefined;
 
 const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -86,17 +86,21 @@ const DashboardPage = () => {
       ]);
 
       // Filter data based on date range
-      const start = dayjs(date.from).startOf('day');
-      const end = dayjs(date.to).endOf('day');
+      const start = date?.from ? dayjs(date.from).startOf('day') : dayjs(0);
+      const end = date?.to ? dayjs(date.to).endOf('day') : dayjs();
 
       const filteredSales = sales.filter(sale => {
         const saleDate = dayjs(sale.date, 'DD-MMM-YYYY');
-        return saleDate.isAfter(start) && saleDate.isBefore(end);
+        return date?.from && date?.to 
+          ? saleDate.isAfter(start) && saleDate.isBefore(end)
+          : true;
       });
 
       const filteredPurchases = purchases.filter(purchase => {
         const purchaseDate = dayjs(purchase.date, 'DD-MMM-YYYY');
-        return purchaseDate.isAfter(start) && purchaseDate.isBefore(end);
+        return date?.from && date?.to 
+          ? purchaseDate.isAfter(start) && purchaseDate.isBefore(end)
+          : true;
       });
 
       // Calculate current stock
@@ -156,7 +160,7 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-4 py-3 px-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -212,13 +216,12 @@ const DashboardPage = () => {
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
-              initialFocus
               mode="range"
               defaultMonth={date?.from}
-              selected={{ from: date?.from, to: date?.to }}
-              onSelect={(range: { from: Date | undefined; to: Date | undefined } | undefined) => {
-                if (range?.from && range?.to) {
-                  setDate({ from: range.from, to: range.to });
+              selected={date}
+              onSelect={(selectedDate: DateRange) => {
+                if (selectedDate?.from && selectedDate.to) {
+                  setDate(selectedDate);
                 }
               }}
               numberOfMonths={2}

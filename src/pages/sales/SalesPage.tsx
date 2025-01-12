@@ -397,7 +397,7 @@ const SalesPage = () => {
     <div className="flex h-full">
       <div 
         className={cn(
-          "transition-all duration-300 ease-in-out p-4 md:p-8 pt-6 overflow-auto",
+          "transition-all duration-300 ease-in-out p-4 md:py-3 md:px-6 pt-16 overflow-auto",
           isSidebarOpen ? "pr-[400px]" : "pr-2"
         )}
       >
@@ -583,7 +583,7 @@ const SalesPage = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg mt-4 min-w-[1220px] w-full">
+        <div className="border rounded-lg mt-4 w-full">
           <Table>
             <TableHeader>
               <TableRow>

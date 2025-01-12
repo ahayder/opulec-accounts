@@ -117,7 +117,7 @@ const InvestmentsPage = () => {
     <div className="flex h-full">
       <div 
         className={cn(
-          "transition-all duration-300 ease-in-out p-4 md:p-8 pt-6 overflow-auto",
+          "transition-all duration-300 ease-in-out p-4 md:py-3 md:px-6 pt-6 overflow-auto",
           isSidebarOpen ? "pr-[400px]" : "pr-2"
         )}
       >
@@ -128,23 +128,22 @@ const InvestmentsPage = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg mt-4">
+        <div className="border rounded-lg mt-4 w-full">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[180px]">Name</TableHead>
-                <TableHead className="w-[120px]">Type</TableHead>
-                <TableHead className="w-[120px]">Amount</TableHead>
-                <TableHead className="w-[120px]">Return</TableHead>
-                <TableHead className="w-[200px]">Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[200px]">Name</TableHead>
+                <TableHead className="w-[150px]">Type</TableHead>
+                <TableHead className="w-[150px]">Amount</TableHead>
+                <TableHead className="w-[150px]">Return</TableHead>
+                <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading investments data...
@@ -153,7 +152,7 @@ const InvestmentsPage = () => {
                 </TableRow>
               ) : investments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No investments entries yet
                   </TableCell>
                 </TableRow>
@@ -162,8 +161,10 @@ const InvestmentsPage = () => {
                   <TableRow key={investment.id}>
                     <TableCell>{new Date(investment.date).toLocaleDateString()}</TableCell>
                     <TableCell>{investment.investor}</TableCell>
-                    <TableCell className="text-right">৳{investment.amount.toFixed(2)}</TableCell>
-                    <TableCell>{investment.note}</TableCell>
+                    <TableCell>Investment</TableCell>
+                    <TableCell>৳{investment.amount.toFixed(2)}</TableCell>
+                    <TableCell>-</TableCell>
+                    <TableCell>{investment.note || '-'}</TableCell>
                   </TableRow>
                 ))
               )}

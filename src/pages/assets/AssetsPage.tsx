@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addAsset, getAssets, type AssetEntry } from '@/utils/database';
-import { Loader2, ChevronRight, Edit } from 'lucide-react';
+import { Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { formatDateForInput } from "@/utils/dateFormat";
@@ -127,7 +127,7 @@ const AssetsPage = () => {
     <div className="flex h-full">
       <div 
         className={cn(
-          "transition-all duration-300 ease-in-out p-4 md:p-8 pt-6 overflow-auto",
+          "transition-all duration-300 ease-in-out p-4 md:py-3 md:px-6 pt-6 overflow-auto",
           isSidebarOpen ? "pr-[400px]" : "pr-2"
         )}
       >
@@ -138,23 +138,22 @@ const AssetsPage = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg mt-4">
+        <div className="border rounded-lg mt-4 w-full">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[180px]">Name</TableHead>
-                <TableHead className="w-[120px]">Category</TableHead>
-                <TableHead className="w-[120px]">Purchase Price</TableHead>
-                <TableHead className="w-[120px]">Current Value</TableHead>
-                <TableHead className="w-[200px]">Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[200px]">Name</TableHead>
+                <TableHead className="w-[150px]">Category</TableHead>
+                <TableHead className="w-[150px]">Purchase Price</TableHead>
+                <TableHead className="w-[150px]">Current Value</TableHead>
+                <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       Loading assets data...
@@ -163,7 +162,7 @@ const AssetsPage = () => {
                 </TableRow>
               ) : assets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No assets entries yet
                   </TableCell>
                 </TableRow>
@@ -185,21 +184,9 @@ const AssetsPage = () => {
                       <TableCell>{new Date(asset.purchaseDate).toLocaleDateString()}</TableCell>
                       <TableCell>{asset.name}</TableCell>
                       <TableCell>{asset.usefulLife} years</TableCell>
-                      <TableCell className="text-right">৳{asset.cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">৳{netBookValue.toFixed(2)}</TableCell>
-                      <TableCell>{asset.note}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            // Handle edit button click
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                      <TableCell>৳{asset.cost.toFixed(2)}</TableCell>
+                      <TableCell>৳{netBookValue.toFixed(2)}</TableCell>
+                      <TableCell>{asset.note || '-'}</TableCell>
                     </TableRow>
                   );
                 })

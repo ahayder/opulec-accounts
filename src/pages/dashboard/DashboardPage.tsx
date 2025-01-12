@@ -1,27 +1,30 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { toast } from 'sonner';
 import { Loader2 } from "lucide-react";
 import dayjs from 'dayjs';
-import { getSales, getPurchases } from '@/utils/database';
+import { getSales, getPurchases, getExpenses } from '@/utils/database';
 import { cn } from "@/lib/utils";
+
+// Helper function to format date for display
+const formatDate = (date: Date | string): string => {
+  return dayjs(date).format('DD-MMM-YYYY');
+};
 
 type DateRange = {
   from: Date;
   to: Date;
-} | undefined;
+} | null;
 
 const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [date, setDate] = useState<DateRange>({
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    to: new Date()
-  });
-  const [activeFilter, setActiveFilter] = useState<'7d' | '1m' | '3m' | 'custom'>('1m');
+  const [dateRange, setDateRange] = useState<DateRange>(null);
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [dateRangeDisplay, setDateRangeDisplay] = useState<string>('');
   const [dashboardData, setDashboardData] = useState<{
     sales: number;
     purchases: number;
@@ -48,59 +51,98 @@ const DashboardPage = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, [date]);
+  }, [dateRange, activeFilter]);
 
-  const handleFilterChange = (filter: '7d' | '1m' | '3m' | 'custom') => {
-    setActiveFilter(filter);
-    const now = new Date();
-    
-    switch (filter) {
-      case '7d':
-        setDate({
-          from: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-          to: now
-        });
-        break;
-      case '1m':
-        setDate({
-          from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-          to: now
-        });
-        break;
-      case '3m':
-        setDate({
-          from: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000),
-          to: now
-        });
-        break;
-      // For custom, we don't set the date here as it's handled by the calendar
+  useEffect(() => {
+    updateDateRangeDisplay();
+  }, [dashboardData, activeFilter, dateRange]);
+
+  const updateDateRangeDisplay = () => {
+    // Format date to "Jan 1 2025" style
+    const formatDisplayDate = (date: Date) => {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    };
+
+    if (dateRange?.from && dateRange?.to) {
+      setDateRangeDisplay(`Showing data from ${formatDisplayDate(dateRange.from)} to ${formatDisplayDate(dateRange.to)}`);
+    } else {
+      const today = new Date();
+      const fromDate = new Date();
+
+      switch (activeFilter) {
+        case 'all':
+          setDateRangeDisplay('Showing all data');
+          break;
+        case '7days':
+          fromDate.setDate(today.getDate() - 7);
+          setDateRangeDisplay(`Last 7 days (${formatDisplayDate(fromDate)} - ${formatDisplayDate(today)})`);
+          break;
+        case '1month':
+          fromDate.setMonth(today.getMonth() - 1);
+          setDateRangeDisplay(`Last month (${formatDisplayDate(fromDate)} - ${formatDisplayDate(today)})`);
+          break;
+        case '3months':
+          fromDate.setMonth(today.getMonth() - 3);
+          setDateRangeDisplay(`Last 3 months (${formatDisplayDate(fromDate)} - ${formatDisplayDate(today)})`);
+          break;
+        default:
+          setDateRangeDisplay('');
+      }
     }
   };
 
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      const [sales, purchases] = await Promise.all([
+      const [sales, purchases, expenses] = await Promise.all([
         getSales(),
-        getPurchases()
+        getPurchases(),
+        getExpenses()
       ]);
 
-      // Filter data based on date range
-      const start = date?.from ? dayjs(date.from).startOf('day') : dayjs(0);
-      const end = date?.to ? dayjs(date.to).endOf('day') : dayjs();
+      // Filter data based on date range and active filter
+      let start = new Date(0);
+      let end = new Date();
+
+      if (dateRange?.from && dateRange?.to) {
+        start = dateRange.from;
+        end = dateRange.to;
+      } else {
+        const today = new Date();
+        switch (activeFilter) {
+          case '7days':
+            start = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case '1month':
+            start = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            break;
+          case '3months':
+            start = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+            break;
+          // 'all' case will use the default values set above
+        }
+      }
+
+      const startDay = dayjs(start).startOf('day');
+      const endDay = dayjs(end).endOf('day');
 
       const filteredSales = sales.filter(sale => {
         const saleDate = dayjs(sale.date, 'DD-MMM-YYYY');
-        return date?.from && date?.to 
-          ? saleDate.isAfter(start) && saleDate.isBefore(end)
-          : true;
+        return saleDate.isAfter(startDay) && saleDate.isBefore(endDay);
       });
 
       const filteredPurchases = purchases.filter(purchase => {
         const purchaseDate = dayjs(purchase.date, 'DD-MMM-YYYY');
-        return date?.from && date?.to 
-          ? purchaseDate.isAfter(start) && purchaseDate.isBefore(end)
-          : true;
+        return purchaseDate.isAfter(startDay) && purchaseDate.isBefore(endDay);
+      });
+
+      const filteredExpenses = expenses.filter(expense => {
+        const expenseDate = dayjs(expense.date, 'DD-MMM-YYYY');
+        return expenseDate.isAfter(startDay) && expenseDate.isBefore(endDay);
       });
 
       // Calculate current stock
@@ -135,17 +177,19 @@ const DashboardPage = () => {
       // Calculate totals
       const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
       const totalPurchases = filteredPurchases.reduce((sum, purchase) => sum + purchase.total, 0);
-      const totalCOGS = 220; // This should be calculated based on your business logic
+      const totalOperatingExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+      
+      // COGS is the total purchases for the period
+      const totalCOGS = totalPurchases;
       const grossProfit = totalSales - totalCOGS;
-      const operatingExpenses = 500; // This should be fetched from your expenses data
-      const netProfit = grossProfit - operatingExpenses;
+      const netProfit = grossProfit - totalOperatingExpenses;
 
       setDashboardData({
         sales: totalSales,
         purchases: totalPurchases,
         cogs: totalCOGS,
         grossProfit,
-        operatingExpenses,
+        operatingExpenses: totalOperatingExpenses,
         netProfit,
         currentStock
       });
@@ -170,116 +214,227 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 mb-4">
-        <Button
-          variant={activeFilter === '7d' ? 'default' : 'outline'}
-          onClick={() => handleFilterChange('7d')}
-        >
-          Last 7 Days
-        </Button>
-        <Button
-          variant={activeFilter === '1m' ? 'default' : 'outline'}
-          onClick={() => handleFilterChange('1m')}
-        >
-          Last Month
-        </Button>
-        <Button
-          variant={activeFilter === '3m' ? 'default' : 'outline'}
-          onClick={() => handleFilterChange('3m')}
-        >
-          Last 3 Months
-        </Button>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={activeFilter === 'custom' ? 'default' : 'outline'}
-              className={cn(
-                'justify-start text-left font-normal',
-                !date && 'text-muted-foreground'
-              )}
-              onClick={() => setActiveFilter('custom')}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date?.from ? (
-                date.to ? (
-                  <>
-                    {dayjs(date.from).format('MMM D, YYYY')} -{' '}
-                    {dayjs(date.to).format('MMM D, YYYY')}
-                  </>
-                ) : (
-                  dayjs(date.from).format('MMM D, YYYY')
-                )
-              ) : (
-                <span>Pick a date range</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={(selectedDate: DateRange) => {
-                if (selectedDate?.from && selectedDate.to) {
-                  setDate(selectedDate);
-                }
-              }}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
+      {/* Date Filter Section */}
+      <div className="space-y-4 mt-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={activeFilter === 'all' ? 'default' : 'outline'}
+            onClick={() => {
+              setActiveFilter('all');
+              setDateRange(null);
+            }}
+          >
+            All Time
+          </Button>
+          <Button
+            variant={activeFilter === '7days' ? 'default' : 'outline'}
+            onClick={() => {
+              setActiveFilter('7days');
+              setDateRange(null);
+            }}
+          >
+            Last 7 Days
+          </Button>
+          <Button
+            variant={activeFilter === '1month' ? 'default' : 'outline'}
+            onClick={() => {
+              setActiveFilter('1month');
+              setDateRange(null);
+            }}
+          >
+            Last Month
+          </Button>
+          <Button
+            variant={activeFilter === '3months' ? 'default' : 'outline'}
+            onClick={() => {
+              setActiveFilter('3months');
+              setDateRange(null);
+            }}
+          >
+            Last 3 Months
+          </Button>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={dateRange?.from ? 'default' : 'outline'}
+                  className={cn(
+                    "justify-start text-left font-normal",
+                    !dateRange?.from && "text-muted-foreground"
+                  )}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    formatDate(dateRange.from)
+                  ) : (
+                    "From Date"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="border-b p-3">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Select start date</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Pick the starting date
+                    </p>
+                  </div>
+                </div>
+                <CalendarComponent
+                  mode="single"
+                  selected={dateRange?.from}
+                  onSelect={(date: Date | undefined) => {
+                    if (date) {
+                      const newRange = {
+                        from: date,
+                        to: dateRange?.to ?? date
+                      };
+                      setDateRange(newRange);
+                      setActiveFilter('custom');
+                    }
+                  }}
+                  className="p-3"
+                />
+              </PopoverContent>
+            </Popover>
+
+            <span className="text-muted-foreground">-</span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={dateRange?.to ? 'default' : 'outline'}
+                  className={cn(
+                    "justify-start text-left font-normal",
+                    !dateRange?.to && "text-muted-foreground"
+                  )}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {dateRange?.to ? (
+                    formatDate(dateRange.to)
+                  ) : (
+                    "To Date"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="border-b p-3">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Select end date</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Pick the ending date
+                    </p>
+                  </div>
+                </div>
+                <CalendarComponent
+                  mode="single"
+                  selected={dateRange?.to}
+                  onSelect={(date: Date | undefined) => {
+                    if (date) {
+                      const newRange = {
+                        from: dateRange?.from ?? date,
+                        to: date
+                      };
+                      setDateRange(newRange);
+                      setActiveFilter('custom');
+                    }
+                  }}
+                  className="p-3"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        {/* Date Range Display */}
+        {dateRangeDisplay && (
+          <div className="text-sm text-muted-foreground flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            {dateRangeDisplay}
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{dashboardData.sales.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Financial Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Revenue Section */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Revenue</h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-sm">Total Sales</span>
+                  <span className="text-lg font-semibold">৳{dashboardData.sales.toFixed(2)}</span>
+                </div>
+              </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total COGS</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{dashboardData.cogs.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gross Profit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${dashboardData.grossProfit < 0 ? 'text-red-500' : ''}`}>
-              ৳{dashboardData.grossProfit.toFixed(2)}
+              {/* Costs Section */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Costs</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-sm">Cost of Goods Sold (COGS)</span>
+                    <span className="text-lg font-semibold text-red-500">-৳{dashboardData.cogs.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-sm">Operating Expenses</span>
+                    <span className="text-lg font-semibold text-red-500">-৳{dashboardData.operatingExpenses.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Operating Expenses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{dashboardData.operatingExpenses.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+            {/* Profit Section */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Profit Analysis</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-sm">Gross Profit</span>
+                    <span className={cn(
+                      "text-lg font-semibold",
+                      dashboardData.grossProfit < 0 ? "text-red-500" : "text-green-500"
+                    )}>
+                      ৳{dashboardData.grossProfit.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-sm">Net Profit</span>
+                    <span className={cn(
+                      "text-lg font-semibold",
+                      dashboardData.netProfit < 0 ? "text-red-500" : "text-green-500"
+                    )}>
+                      ৳{dashboardData.netProfit.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${dashboardData.netProfit < 0 ? 'text-red-500' : ''}`}>
-              ৳{dashboardData.netProfit.toFixed(2)}
+              {/* Profit Margins */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Profit Margins</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-sm">Gross Margin</span>
+                    <span className="text-lg font-semibold">
+                      {((dashboardData.grossProfit / dashboardData.sales) * 100 || 0).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-sm">Net Margin</span>
+                    <span className="text-lg font-semibold">
+                      {((dashboardData.netProfit / dashboardData.sales) * 100 || 0).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

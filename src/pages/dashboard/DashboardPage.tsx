@@ -36,7 +36,10 @@ const DashboardPage = () => {
       [key: string]: {
         product: string;
         quantity: number;
-        value: number;
+        totalPurchaseValue: number;
+        totalPurchaseQuantity: number;
+        averageCost: number;
+        currentValue: number;
       };
     };
   }>({
@@ -150,7 +153,10 @@ const DashboardPage = () => {
         [key: string]: {
           product: string;
           quantity: number;
-          value: number;
+          totalPurchaseValue: number;
+          totalPurchaseQuantity: number;
+          averageCost: number;
+          currentValue: number;
         };
       } = {};
 
@@ -160,17 +166,29 @@ const DashboardPage = () => {
           currentStock[purchase.product] = {
             product: purchase.product,
             quantity: 0,
-            value: 0
+            totalPurchaseValue: 0,
+            totalPurchaseQuantity: 0,
+            averageCost: 0,
+            currentValue: 0
           };
         }
+        currentStock[purchase.product].totalPurchaseValue += purchase.total;
+        currentStock[purchase.product].totalPurchaseQuantity += purchase.quantity;
         currentStock[purchase.product].quantity += purchase.quantity;
-        currentStock[purchase.product].value += purchase.total;
       });
 
       // Subtract all sales
       sales.forEach(sale => {
         if (currentStock[sale.product]) {
           currentStock[sale.product].quantity -= sale.quantity;
+        }
+      });
+
+      // Calculate average cost and current value for each product
+      Object.values(currentStock).forEach(stock => {
+        if (stock.totalPurchaseQuantity > 0) {
+          stock.averageCost = stock.totalPurchaseValue / stock.totalPurchaseQuantity;
+          stock.currentValue = stock.quantity * stock.averageCost;
         }
       });
 
@@ -377,11 +395,15 @@ const DashboardPage = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between border-b pb-2">
                     <span className="text-sm">Cost of Goods Sold (COGS)</span>
-                    <span className="text-lg font-semibold text-red-500">-৳{dashboardData.cogs.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-red-500">৳{dashboardData.cogs.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between border-b pb-2">
                     <span className="text-sm">Operating Expenses</span>
-                    <span className="text-lg font-semibold text-red-500">-৳{dashboardData.operatingExpenses.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-red-500">৳{dashboardData.operatingExpenses.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b pb-2 pt-1">
+                    <span className="text-sm font-medium">Total Cost</span>
+                    <span className="text-lg font-semibold text-red-500">৳{(dashboardData.cogs + dashboardData.operatingExpenses).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -392,23 +414,33 @@ const DashboardPage = () => {
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Profit Analysis</h3>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="text-sm">Gross Profit</span>
-                    <span className={cn(
-                      "text-lg font-semibold",
-                      dashboardData.grossProfit < 0 ? "text-red-500" : "text-green-500"
-                    )}>
-                      ৳{dashboardData.grossProfit.toFixed(2)}
-                    </span>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Gross Profit = Total Sales - COGS
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="text-sm">Gross Profit</span>
+                      <span className={cn(
+                        "text-lg font-semibold",
+                        dashboardData.grossProfit < 0 ? "text-red-500" : "text-green-500"
+                      )}>
+                        {dashboardData.grossProfit < 0 ? "-" : ""}৳{Math.abs(dashboardData.grossProfit).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="text-sm">Net Profit</span>
-                    <span className={cn(
-                      "text-lg font-semibold",
-                      dashboardData.netProfit < 0 ? "text-red-500" : "text-green-500"
-                    )}>
-                      ৳{dashboardData.netProfit.toFixed(2)}
-                    </span>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Net Profit = Gross Profit - Operating Expenses
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="text-sm">Net Profit</span>
+                      <span className={cn(
+                        "text-lg font-semibold",
+                        dashboardData.netProfit < 0 ? "text-red-500" : "text-green-500"
+                      )}>
+                        {dashboardData.netProfit < 0 ? "-" : ""}৳{Math.abs(dashboardData.netProfit).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -417,17 +449,37 @@ const DashboardPage = () => {
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Profit Margins</h3>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="text-sm">Gross Margin</span>
-                    <span className="text-lg font-semibold">
-                      {((dashboardData.grossProfit / dashboardData.sales) * 100 || 0).toFixed(1)}%
-                    </span>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Gross Margin = (Gross Profit ÷ Total Sales) × 100
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="text-sm">Gross Margin</span>
+                      <span className={cn(
+                        "text-lg font-semibold",
+                        dashboardData.grossProfit < 0 ? "text-red-500" : "text-green-500"
+                      )}>
+                        {dashboardData.sales > 0 
+                          ? ((dashboardData.grossProfit / dashboardData.sales) * 100).toFixed(1)
+                          : "0.0"}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="text-sm">Net Margin</span>
-                    <span className="text-lg font-semibold">
-                      {((dashboardData.netProfit / dashboardData.sales) * 100 || 0).toFixed(1)}%
-                    </span>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Net Margin = (Net Profit ÷ Total Sales) × 100
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="text-sm">Net Margin</span>
+                      <span className={cn(
+                        "text-lg font-semibold",
+                        dashboardData.netProfit < 0 ? "text-red-500" : "text-green-500"
+                      )}>
+                        {dashboardData.sales > 0 
+                          ? ((dashboardData.netProfit / dashboardData.sales) * 100).toFixed(1)
+                          : "0.0"}%
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -455,7 +507,8 @@ const DashboardPage = () => {
                   <tr className="border-b">
                     <th className="h-12 px-4 text-left align-middle font-medium">Product</th>
                     <th className="h-12 px-4 text-right align-middle font-medium">Quantity</th>
-                    <th className="h-12 px-4 text-right align-middle font-medium">Value</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium">Average Cost</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium">Current Value</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -465,9 +518,25 @@ const DashboardPage = () => {
                       <tr key={item.product} className="border-b">
                         <td className="p-4 align-middle">{item.product}</td>
                         <td className="p-4 align-middle text-right">{item.quantity}</td>
-                        <td className="p-4 align-middle text-right">৳{item.value.toFixed(2)}</td>
+                        <td className="p-4 align-middle text-right">৳{item.averageCost.toFixed(2)}</td>
+                        <td className="p-4 align-middle text-right">৳{item.currentValue.toFixed(2)}</td>
                       </tr>
                     ))}
+                  {/* Total Row */}
+                  <tr className="border-t border-t-2">
+                    <td className="p-4 align-middle font-medium">Total</td>
+                    <td className="p-4 align-middle text-right font-medium">
+                      {Object.values(dashboardData.currentStock)
+                        .filter(item => item.quantity > 0)
+                        .reduce((sum, item) => sum + item.quantity, 0)}
+                    </td>
+                    <td className="p-4 align-middle text-right font-medium">-</td>
+                    <td className="p-4 align-middle text-right font-medium">
+                      ৳{Object.values(dashboardData.currentStock)
+                        .filter(item => item.quantity > 0)
+                        .reduce((sum, item) => sum + item.currentValue, 0).toFixed(2)}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
